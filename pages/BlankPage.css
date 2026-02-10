@@ -1,0 +1,583 @@
+.blank-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a1628 0%, #132742 100%);
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+}
+
+.back-button {
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-button:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.5);
+  transform: translateX(-4px);
+}
+
+.sign-out-button {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sign-out-button:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-2px);
+}
+
+.sign-out-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.page-subtitle {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 40px 0;
+}
+
+.settings-section {
+  background: rgba(30, 58, 95, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin: 0 0 20px 0;
+}
+
+.section-description {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  background: rgba(30, 58, 95, 0.5);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 16px;
+  color: #ffffff;
+  transition: border-color 0.2s;
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #60a5fa;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.save-button {
+  background: linear-gradient(90deg, #3b82f6 0%, #22d3ee 100%);
+  border: none;
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-message {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.save-message.success {
+  color: #10b981;
+}
+
+.save-message.error {
+  color: #f87171;
+}
+
+/* Admin Section */
+.admin-header {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.admin-playgroup-name {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+/* Admin Toggles Section */
+.admin-settings-container {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 32px;
+  align-items: flex-start;
+}
+
+.admin-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+.admin-save-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 8px;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.admin-save-button {
+  background: linear-gradient(135deg, #3b82f6 0%, #22d3ee 100%);
+  border: none;
+  color: #ffffff;
+  padding: 12px 32px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 120px;
+  text-align: center;
+}
+
+.admin-save-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 211, 238, 0.4);
+}
+
+.admin-save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-save-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.admin-save-message {
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.admin-save-message.success {
+  color: #10b981;
+}
+
+.admin-save-message.error {
+  color: #f87171;
+}
+
+.toggle-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Toggle Switch */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+  background: rgba(239, 68, 68, 0.3);
+  border-radius: 24px;
+  transition: background 0.3s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.3s;
+}
+
+.toggle-checkbox:checked + .toggle-slider {
+  background: linear-gradient(90deg, #3b82f6 0%, #22d3ee 100%);
+}
+
+.toggle-checkbox:checked + .toggle-slider::before {
+  transform: translateX(24px);
+}
+
+/* Season Settings */
+.season-settings {
+  display: flex;
+  gap: 16px;
+  padding-left: 12px;
+  flex-wrap: wrap;
+}
+
+.season-setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.season-setting-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.season-dropdown,
+.season-date-input {
+  background: rgba(30, 58, 95, 0.4);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 140px;
+}
+
+.season-dropdown:hover:not(:disabled),
+.season-date-input:hover:not(:disabled) {
+  background: rgba(30, 58, 95, 0.6);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.season-dropdown:disabled,
+.season-date-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(30, 58, 95, 0.2);
+  border-color: rgba(96, 165, 250, 0.15);
+}
+
+.season-dropdown option {
+  background: #132742;
+  color: #ffffff;
+}
+
+.season-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.season-date-input:disabled::-webkit-calendar-picker-indicator {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
+/* Members Section */
+.members-section {
+  margin-bottom: 24px;
+}
+
+.subsection-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin: 0 0 12px 0;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(30, 58, 95, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.member-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.warning-icon {
+  font-size: 18px;
+}
+
+.member-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.player-dropdown {
+  flex: 1;
+  background: rgba(30, 58, 95, 0.5);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #ffffff;
+  cursor: pointer;
+  max-width: 200px;
+}
+
+.player-dropdown:focus {
+  outline: none;
+  border-color: #60a5fa;
+}
+
+.kick-button {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.kick-button:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.kick-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Unlinked Players Section */
+.unlinked-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.unlinked-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.unlinked-player {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Kick Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.kick-modal {
+  background: linear-gradient(135deg, #1e3a5f 0%, #132742 100%);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 400px;
+  width: 90%;
+}
+
+.kick-modal-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #f87171;
+  margin: 0 0 16px 0;
+}
+
+.kick-modal-text {
+  font-size: 16px;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+}
+
+.kick-modal-note {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 24px 0;
+}
+
+.kick-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.kick-cancel-button {
+  flex: 1;
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.kick-cancel-button:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.kick-confirm-button {
+  flex: 1;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #f87171;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.kick-confirm-button:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.7);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .back-button,
+  .sign-out-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-settings-container {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .admin-save-section {
+    width: 100%;
+  }
+}

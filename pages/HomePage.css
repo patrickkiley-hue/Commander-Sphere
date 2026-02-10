@@ -1,0 +1,497 @@
+
+.home-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a1628 0%, #132742 100%);
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin: 0;
+}
+
+.mobile-break {
+  display: none;
+}
+
+.settings-button {
+  background: #1e3a5f;
+  border: 1px solid #2d5a8f;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settings-button:hover {
+  background: #2d5a8f;
+  border-color: #3d6a9f;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.admin-button {
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-button:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.switch-playgroup-button {
+  background: #1e3a5f;
+  border: 1px solid #2d5a8f;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.switch-playgroup-button:hover {
+  background: #2d5a8f;
+  border-color: #3d6a9f;
+}
+
+/* Playgroup Name */
+.playgroup-name {
+  font-size: 64px;
+  font-weight: 700;
+  color: #22d3ee;
+  text-align: center;
+  margin-bottom: 40px;
+  text-shadow: 0 0 30px rgba(34, 211, 238, 0.5);
+}
+
+.join-host-button {
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(90deg, #3b82f6 0%, #22d3ee 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 16px 32px;
+  margin: 0 auto 40px;
+  display: block;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.join-host-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-button {
+  background: rgba(30, 58, 95, 0.5);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.stat-button:hover {
+  background: rgba(30, 58, 95, 0.8);
+  border-color: rgba(96, 165, 250, 0.4);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  font-size: 32px;
+}
+
+.stat-icon-svg {
+  width: 32px;
+  height: 32px;
+  color: #60a5fa;
+  flex-shrink: 0;
+}
+
+.stat-button-content {
+  flex: 1;
+}
+
+.stat-button-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.stat-button-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Track Game Button */
+.track-game-button {
+  width: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #22d3ee 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.track-game-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+}
+
+/* Last Week Highlights */
+.last-week-highlights {
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weekly-highlights {
+  margin-bottom: 32px;
+}
+
+.highlight-card {
+  background: rgba(30, 58, 95, 0.6);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.highlight-card:hover {
+  transform: translateY(-2px);
+}
+
+.games-played {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(30, 58, 95, 0.6) 100%);
+}
+
+.total-players {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.2) 0%, rgba(30, 58, 95, 0.6) 100%);
+}
+
+.unique-decks {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(30, 58, 95, 0.6) 100%);
+}
+
+.highlight-number {
+  font-size: 64px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.highlight-label {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Weekly Participants */
+.weekly-participants {
+  margin-bottom: 32px;
+}
+
+.subsection-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin-bottom: 12px;
+}
+
+.participant-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.participant-pill {
+  background: rgba(30, 58, 95, 0.8);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+/* Color Identities Section */
+.color-identities-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.color-identity-column {
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.color-identity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.color-identity-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.identity-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.identity-count {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.identity-winrate {
+  font-size: 16px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+/* Top Performers */
+.top-performers {
+  margin-bottom: 32px;
+}
+
+.performer-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.rank-1 {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.rank-2 {
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.2) 0%, rgba(100, 116, 139, 0.1) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.rank-3 {
+  background: linear-gradient(135deg, rgba(205, 127, 50, 0.2) 0%, rgba(180, 83, 9, 0.1) 100%);
+  border: 1px solid rgba(205, 127, 50, 0.3);
+}
+
+.performer-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.medal-icon {
+  font-size: 32px;
+}
+
+.performer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.performer-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.performer-stats {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.performer-winrate {
+  font-size: 32px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+/* Featured Decks */
+.featured-decks {
+  margin-bottom: 32px;
+}
+
+.featured-deck-card {
+  background: rgba(30, 58, 95, 0.4);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.deck-category {
+  font-size: 12px;
+  font-weight: 600;
+  color: #60a5fa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.deck-commander {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-pilot {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.deck-detail {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .color-identities-section {
+    grid-template-columns: 1fr;
+  }
+
+  .playgroup-name {
+    font-size: 64px;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  /* Move buttons to top */
+  .header-buttons {
+    width: 100%;
+    order: -1;
+  }
+
+  .settings-button,
+  .switch-playgroup-button {
+    flex: 1;
+  }
+
+  /* Split title onto two lines */
+  .app-title {
+    font-size: 24px;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .mobile-break {
+    display: block;
+  }
+}
+
+.empty-state {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  padding: 20px;
+  text-align: center;
+}
+
+.participant-pill.empty-state {
+  color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}

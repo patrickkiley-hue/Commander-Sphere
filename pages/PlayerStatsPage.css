@@ -1,0 +1,383 @@
+.player-stats-header-unified {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 24px 32px;
+  margin-bottom: 24px;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.player-name-header {
+  font-size: 42px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.season-toggle {
+  display: flex;
+  gap: 8px;
+  background: rgba(30, 58, 95, 0.3);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.toggle-btn.active {
+  background: rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+}
+
+.header-stats-row {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 80px;
+  padding: 0 80px;
+}
+
+.header-stat {
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.stat-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.stat-left {
+  /* Left stat inset from edge */
+}
+
+.stat-right {
+  /* Right stat inset from edge */
+}
+
+.header-stat-number {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.header-stat-number.purple {
+  color: #a78bfa;
+}
+
+.header-stat-number.green {
+  color: #10b981;
+}
+
+.header-stat-number.yellow {
+  color: #daa520;
+}
+
+.header-stat-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
+/* Stats Row */
+.stats-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stats-box {
+  background: rgba(30, 58, 95, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.stats-box.full-width {
+  margin-bottom: 24px;
+}
+
+.stats-box-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-icon-svg {
+  flex-shrink: 0;
+  color: #60a5fa;
+  width: 20px;
+  height: 20px;
+}
+
+/* Deck History */
+.deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.deck-card {
+  position: relative;
+  background: rgba(17, 24, 39, 0.6);
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+}
+
+.deck-card-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.deck-card-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.deck-card-bg .bg-left {
+  position: absolute;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.deck-card-bg .bg-right {
+  position: absolute;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.deck-card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right, rgba(17, 24, 39, 0.85) 0%, rgba(17, 24, 39, 0.6) 100%);
+}
+
+.deck-card-content {
+  position: relative;
+  z-index: 1;
+  padding: 16px 20px;
+  width: 100%;
+}
+
+.deck-card-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.deck-card-category {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 8px;
+}
+
+.deck-card-stat {
+  font-size: 14px;
+  color: #daa520;
+  font-weight: 500;
+}
+
+/* Turn Order */
+.turn-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.turn-order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 6px;
+}
+
+.turn-order-left {
+  flex: 1;
+}
+
+.turn-order-label {
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.turn-order-record {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.turn-order-rate {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.turn-order-rate.yellow {
+  color: #daa520;
+}
+
+/* Color Identity */
+.color-identity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.color-identity-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.color-identity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 6px;
+}
+
+.ci-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ci-label {
+  font-size: 14px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.ci-value {
+  font-size: 14px;
+  color: #ffffff;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+/* Pod Composition */
+.pod-composition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pod-composition-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 6px;
+}
+
+.pod-comp-left {
+  flex: 1;
+}
+
+.pod-comp-name {
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.pod-comp-record {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pod-comp-rate {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.pod-comp-rate.yellow {
+  color: #daa520;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .color-identity-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .header-stats-row {
+    padding: 0 40px;
+  }
+}
+
+@media (max-width: 600px) {
+  .player-stats-header-unified {
+    padding: 20px 16px;
+  }
+  
+  .header-top {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .player-name-header {
+    font-size: 36px;
+  }
+  
+  .header-stats-row {
+    padding: 0 20px;
+  }
+  
+  .header-stat-number {
+    font-size: 32px;
+  }
+  
+  .header-stat-label {
+    font-size: 11px;
+  }
+}

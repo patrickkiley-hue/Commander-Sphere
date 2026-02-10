@@ -1,0 +1,72 @@
+.players-page-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 24px 0;
+  text-align: left;
+}
+
+.loading-message,
+.empty-message {
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  margin-top: 40px;
+  font-size: 16px;
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.player-card {
+  background: rgba(30, 58, 95, 0.4);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.player-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.player-stats {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.stat-games {
+  font-size: 15px;
+  color: #ffffff;
+}
+
+.stat-decks {
+  font-size: 15px;
+  color: #22d3ee;
+}
+
+.stat-wins {
+  font-size: 15px;
+  color: #10b981;
+}
+
+@media (max-width: 600px) {
+  .player-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .player-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

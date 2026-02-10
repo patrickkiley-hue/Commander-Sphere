@@ -1,0 +1,1048 @@
+/* Cyan-themed header for My Stats */
+.my-stats-header-unified {
+  background: rgba(30, 58, 95, 0.3);
+  border: 1px solid #22d3ee;
+  border-radius: 12px;
+  padding: 24px 32px;
+  margin-bottom: 24px;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.my-stats-player-name {
+  font-size: 42px;
+  font-weight: 600;
+  color: #22d3ee;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.5);
+  margin: 0;
+}
+
+.season-toggle {
+  display: flex;
+  gap: 8px;
+  background: rgba(30, 58, 95, 0.3);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.toggle-btn.active {
+  background: rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+}
+
+.header-stats-row {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 80px;
+  padding: 0 80px;
+}
+
+.header-stat {
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.stat-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.header-stat-number {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.header-stat-number.purple {
+  color: #a78bfa;
+}
+
+.header-stat-number.green {
+  color: #10b981;
+}
+
+.header-stat-number.yellow {
+  color: #daa520;
+}
+
+.header-stat-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
+/* Waiting message styling */
+.waiting-message {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 18px;
+  padding: 60px 20px;
+  background: rgba(30, 58, 95, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  margin-top: 40px;
+}
+
+/* Import rest of styling from PlayerStatsPage */
+.stats-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stats-box {
+  background: rgba(30, 58, 95, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.stats-box.full-width {
+  margin-bottom: 24px;
+}
+
+.stats-box-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-icon-svg {
+  flex-shrink: 0;
+  color: #60a5fa;
+  width: 20px;
+  height: 20px;
+}
+
+/* Deck History */
+.deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.deck-card {
+  position: relative;
+  background: rgba(17, 24, 39, 0.6);
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+}
+
+.deck-card-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.deck-card-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.deck-card-bg .bg-left {
+  position: absolute;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.deck-card-bg .bg-right {
+  position: absolute;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.deck-card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right, rgba(17, 24, 39, 0.85) 0%, rgba(17, 24, 39, 0.6) 100%);
+}
+
+.deck-card-content {
+  position: relative;
+  z-index: 1;
+  padding: 16px 20px;
+  width: 100%;
+}
+
+.deck-card-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.deck-card-category {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 8px;
+}
+
+.deck-card-stat {
+  font-size: 14px;
+  color: #daa520;
+  font-weight: 500;
+}
+
+/* Turn Order */
+.turn-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.turn-order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 6px;
+}
+
+.turn-order-left {
+  flex: 1;
+}
+
+.turn-order-label {
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.turn-order-record {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.turn-order-rate {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.turn-order-rate.yellow {
+  color: #daa520;
+}
+
+/* Color Identity */
+.color-identity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.color-identity-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.color-identity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 6px;
+}
+
+.ci-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ci-label {
+  font-size: 14px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.ci-value {
+  font-size: 14px;
+  color: #ffffff;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+/* Pod Composition */
+.pod-composition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pod-composition-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 6px;
+}
+
+.pod-comp-left {
+  flex: 1;
+}
+
+.pod-comp-name {
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.pod-comp-record {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pod-comp-rate {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.pod-comp-rate.yellow {
+  color: #daa520;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .performance-row,
+  .matchup-row {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .color-identity-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .deck-history-columns {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .deck-history-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* Hide empty cells on mobile */
+  .deck-history-empty {
+    display: none;
+  }
+  
+  .advanced-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .header-stats-row {
+    padding: 0 40px;
+  }
+
+  /* 1. Favorable/Unfavorable Pods - Stack: names → % → record */
+  .pod-matchup-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px;
+  }
+
+  .pod-matchup-left {
+    width: 100%;
+  }
+
+  .pod-matchup-names {
+    margin-bottom: 2px;
+  }
+
+  .pod-matchup-rate {
+    align-self: flex-start !important;
+    font-size: 20px;
+  }
+
+  .pod-matchup-record {
+    margin-top: 2px;
+  }
+
+  /* 2. Bracket Breakdown - Most Played section */
+  .bracket-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 2px;
+  }
+
+  .bracket-name {
+    font-size: 15px;
+    text-align: left !important;
+  }
+
+  .bracket-games {
+    align-self: flex-start !important;
+    font-size: 16px;
+  }
+
+  /* 2b. Bracket Breakdown - Win rates (B2, B3, etc.) side by side, stacked */
+  .bracket-win-list {
+    flex-direction: column !important;
+    gap: 8px;
+    align-items: stretch !important;
+  }
+
+  .bracket-win-item {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    width: 100%;
+  }
+
+  .bracket-label {
+    text-align: left !important;
+  }
+
+  .bracket-winrate {
+    text-align: right !important;
+  }
+
+  /* 3. Game Length - Stack turn numbers under headings, left justify */
+  .turn-stat {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px;
+  }
+
+  .turn-label,
+  .turn-label-large {
+    width: 100%;
+    text-align: left !important;
+  }
+
+  .turn-value,
+  .turn-value-green,
+  .turn-value-red {
+    align-self: flex-start !important;
+    text-align: left !important;
+  }
+
+  /* 4. Fastest/Slowest Win - Stack labels and turn numbers */
+  .win-record {
+    gap: 4px;
+    align-items: flex-start !important;
+  }
+
+  .record-label {
+    width: 100%;
+    text-align: left !important;
+    display: block;
+  }
+
+  .record-deck-line {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px;
+  }
+
+  .record-value {
+    align-self: flex-start !important;
+    text-align: left !important;
+  }
+
+  /* Left justify color marbles everywhere */
+  .color-mana-container {
+    justify-content: flex-start !important;
+  }
+
+  /* 5. Deck History - Full restructure: name → marbles+record → stat */
+  .deck-history-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .deck-history-left {
+    width: 100%;
+  }
+
+  .deck-history-name {
+    font-size: 15px;
+    margin-bottom: 6px;
+    text-align: left !important;
+  }
+
+  .deck-history-record {
+    margin-top: 2px;
+    margin-bottom: 6px;
+    text-align: left !important;
+  }
+
+  .deck-history-stat {
+    align-self: flex-start !important;
+    margin-left: 0 !important;
+    font-size: 20px;
+    text-align: left !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .my-stats-header-unified {
+    padding: 20px 16px;
+  }
+  
+  .header-top {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .my-stats-player-name {
+    font-size: 36px;
+  }
+  
+  .header-stats-row {
+    padding: 0 20px;
+  }
+  
+  .header-stat-number {
+    font-size: 32px;
+  }
+  
+  .header-stat-label {
+    font-size: 11px;
+  }
+}
+
+/* Performance Stats Sections - Cyan Theme */
+.performance-row {
+  margin-bottom: 24px;
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.performance-box.cyan-border {
+  border: 1px solid #22d3ee;
+}
+
+.cyan-icon {
+  color: #22d3ee !important;
+}
+
+.stats-subtitle {
+  font-size: 13px;
+  margin-bottom: 16px;
+  font-weight: 400;
+}
+
+.cyan-text {
+  color: #22d3ee;
+}
+
+.matchup-row {
+  margin-bottom: 24px;
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.color-performance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.color-performance-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 6px;
+}
+
+.color-perf-label {
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.color-perf-rate {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.color-perf-rate.yellow {
+  color: #daa520;
+}
+
+/* Pod Matchup Sections - Green/Red Theme */
+.matchup-box.green-border {
+  border: 1px solid #10b981;
+}
+
+.matchup-box.red-border {
+  border: 1px solid #fb7185;
+}
+
+.green-icon {
+  color: #10b981 !important;
+}
+
+.red-icon {
+  color: #fb7185 !important;
+}
+
+.green-text {
+  color: #10b981;
+}
+
+.red-text {
+  color: #fb7185;
+}
+
+.pod-matchup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pod-matchup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 6px;
+}
+
+.pod-matchup-left {
+  flex: 1;
+}
+
+.pod-matchup-names {
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.pod-matchup-record {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pod-matchup-rate {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.pod-matchup-rate.green {
+  color: #10b981;
+}
+
+.pod-matchup-rate.red {
+  color: #fb7185;
+}
+
+.no-data-message {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  padding: 20px;
+}
+
+/* Deck History Section */
+.deck-history-section {
+  margin-bottom: 24px;
+  border: 1px solid #f5e6d3 !important;
+}
+
+.parchment-icon {
+  color: #f5e6d3 !important;
+}
+
+.deck-history-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.deck-history-column-header {
+  display: flex;
+  flex-direction: column;
+}
+
+.deck-history-header {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.deck-history-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 0;
+}
+
+.deck-history-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.deck-history-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.deck-history-cell {
+  display: flex;
+  min-height: 0;
+}
+
+.deck-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  width: 100%;
+  border: 1px solid transparent;
+  flex: 1;
+}
+
+.deck-history-empty {
+  width: 100%;
+}
+
+.deck-history-item.green-border-thin {
+  border-color: #10b981;
+}
+
+.deck-history-item.red-border-thin {
+  border-color: #fb7185;
+}
+
+.deck-history-item:hover {
+  background: rgba(30, 58, 95, 0.5);
+  transform: translateY(-1px);
+}
+
+.deck-history-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-history-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.deck-history-record {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 6px;
+}
+
+.deck-history-stat {
+  font-size: 18px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.deck-history-stat.green {
+  color: #10b981;
+}
+
+.deck-history-stat.red {
+  color: #fb7185;
+}
+
+/* Advanced Metrics Section */
+.advanced-metrics-section {
+  border: 1px solid #a855f7 !important;
+  background: rgba(30, 58, 95, 0.3);
+  padding: 24px;
+  border-radius: 12px;
+}
+
+.purple-icon {
+  color: #a855f7 !important;
+}
+
+.advanced-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.advanced-metric-box {
+  background: rgba(30, 58, 95, 0.4);
+  padding: 20px;
+  border-radius: 8px;
+  border: none;
+}
+
+.metric-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #a855f7;
+  margin: 0 0 16px 0;
+}
+
+/* Bracket Breakdown Styles */
+.bracket-top-list {
+  margin-bottom: 16px;
+}
+
+.bracket-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.bracket-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.bracket-games {
+  font-size: 16px;
+  font-weight: 600;
+  color: #daa520;
+}
+
+.bracket-win-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.bracket-win-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.bracket-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.bracket-winrate {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.bracket-winrate.high {
+  color: #10b981;
+}
+
+.bracket-winrate.low {
+  color: #fb7185;
+}
+
+.bracket-nickname {
+  text-align: center;
+  padding: 16px 0 0 0;
+}
+
+.nickname-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #a855f7;
+  margin-bottom: 6px;
+}
+
+.nickname-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+}
+
+/* Seat Metrics Styles */
+.turn-averages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.bracket-turn-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.turn-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.turn-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.turn-label-large {
+  font-size: 15px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.turn-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #daa520;
+}
+
+.turn-value-green {
+  font-size: 16px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.turn-value-red {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fb7185;
+}
+
+.win-record {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.record-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.record-deck-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.record-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* Win Conditions Bar */
+.win-conditions-bar {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(168, 85, 247, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.win-conditions-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.win-condition-item {
+  margin-right: 12px;
+}
+
+.win-condition-label {
+  font-size: 14px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.win-condition-label.green {
+  color: #10b981;
+}
+
+.win-condition-label.red {
+  color: #fb7185;
+}
+
+.win-condition-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.win-condition-percentage {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.win-condition-percentage.green {
+  color: #10b981;
+}
+
+.win-condition-percentage.red {
+  color: #fb7185;
+}
+

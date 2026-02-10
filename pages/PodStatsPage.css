@@ -1,0 +1,259 @@
+.pod-stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.pod-stats-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.season-toggle {
+  display: flex;
+  gap: 8px;
+  background: rgba(30, 58, 95, 0.3);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.toggle-btn.active {
+  background: rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+}
+
+.loading-message {
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  margin-top: 40px;
+  font-size: 16px;
+}
+
+/* Players Grid */
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.player-stat-button {
+  background: rgba(30, 58, 95, 0.4);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.player-stat-button:hover {
+  background: rgba(30, 58, 95, 0.6);
+  border-color: rgba(96, 165, 250, 0.4);
+  transform: translateY(-2px);
+}
+
+.player-stat-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  flex: 1;
+  min-width: 0;
+}
+
+.player-stat-numbers {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.stat-games {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+
+.stat-winrate {
+  font-size: 14px;
+  font-weight: 500;
+  color: #daa520;
+  white-space: nowrap;
+}
+
+/* Stats Row (side by side) */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Stats Boxes */
+.stats-box {
+  background: rgba(30, 58, 95, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.stats-box.full-width {
+  margin-bottom: 24px;
+}
+
+.stats-box-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin: 0 0 16px 0;
+}
+
+.stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 15px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Color classes for win rates - matching prototype colors */
+.stat-value.blue {
+  color: #22d3ee; /* Cyan/teal - best */
+}
+
+.stat-value.green {
+  color: #10b981; /* Green - second */
+}
+
+.stat-value.yellow {
+  color: #fbbf24; /* Yellow - third */
+}
+
+.stat-value.purple {
+  color: #a78bfa; /* Purple - fourth */
+}
+
+.stat-value.red {
+  color: #fb7185; /* Light red - fifth/worst */
+}
+
+.stat-value.gray {
+  color: #94a3b8; /* Gray - unranked (seat 5) */
+}
+
+/* Color Identity Grid */
+.color-identity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.color-identity-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.color-identity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(30, 58, 95, 0.3);
+  border-radius: 6px;
+}
+
+.ci-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ci-label {
+  font-size: 14px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.ci-value {
+  font-size: 14px;
+  color: #ffffff;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .color-identity-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .pod-stats-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .players-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .player-stat-button {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .player-stat-numbers {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

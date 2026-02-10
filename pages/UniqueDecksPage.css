@@ -1,0 +1,124 @@
+.decks-page-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 24px 0;
+  text-align: left;
+}
+
+.loading-message,
+.empty-message {
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  margin-top: 40px;
+  font-size: 16px;
+}
+
+.decks-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.deck-box {
+  background: rgba(30, 58, 95, 0.4);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  padding: 16px 20px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.deck-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-name-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.deck-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.deck-colors {
+  margin-bottom: 6px;
+}
+
+.deck-pilots {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.deck-art {
+  flex-shrink: 0;
+  width: 120px;
+  height: 90px;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.commander-art-single {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.commander-art-dual {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.commander-art-left {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.commander-art-right {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+@media (max-width: 1000px) {
+  .decks-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .decks-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .deck-box {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .deck-art {
+    width: 100%;
+    height: 200px;
+    order: -1; /* Move art above text on mobile */
+  }
+}
