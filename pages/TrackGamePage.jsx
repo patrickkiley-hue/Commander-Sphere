@@ -77,17 +77,22 @@ function TrackGamePage({ currentPlaygroup }) {
   useEffect(() => {
     const loadSettings = async () => {
       if (!currentPlaygroup?.spreadsheetId) {
+        console.log('No current playgroup, skipping load');
         setIsLoading(false);
         return;
       }
+
+      console.log('Loading playgroup settings for:', currentPlaygroup.spreadsheetId);
 
       try {
         const pgData = await loadPlaygroupData(currentPlaygroup.spreadsheetId);
         if (pgData) {
           setAdvancedStatsEnabled(pgData.advancedStatsEnabled || false);
+          console.log('Loaded playgroup settings successfully');
         }
       } catch (error) {
         console.error('Error loading playgroup settings:', error);
+        // Continue anyway - don't block the page
       }
       
       // Check for existing live game
@@ -107,9 +112,18 @@ function TrackGamePage({ currentPlaygroup }) {
       }
       
       setIsLoading(false);
+      console.log('TrackGamePage loading complete');
     };
 
     loadSettings();
+
+    // Safety timeout - force loading to false after 5 seconds
+    const timeoutId = setTimeout(() => {
+      console.warn('TrackGamePage loading timeout - forcing completion');
+      setIsLoading(false);
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
   }, [currentPlaygroup, navigate]);
 
   // Detect if device is mobile/tablet for Live Track feature
@@ -560,6 +574,13 @@ function TrackGamePage({ currentPlaygroup }) {
           <p style={{ color: '#ffffff', textAlign: 'center', marginTop: '40px' }}>
             Loading...
           </p>
+          <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', marginTop: '20px', padding: '0 20px' }}>
+            <div>Playgroup: {currentPlaygroup ? currentPlaygroup.name : 'MISSING'}</div>
+            <div>Spreadsheet ID: {currentPlaygroup?.spreadsheetId || 'MISSING'}</div>
+            <div style={{ marginTop: '10px', fontSize: '10px' }}>
+              If stuck here for 5+ seconds, there's a loading issue
+            </div>
+          </div>
         </div>
       </div>
     );
