@@ -160,24 +160,46 @@
   transform-origin: center;
 }
 
-/* Turn counter container - always on right side */
-.turn-counter-container.right-side {
+/* Turn counter button container - positioned independently */
+.turn-counter-btn-container {
+  position: absolute;
   right: 4.167dvw; /* 30px from right edge */
+  top: 50%;
   transform: translateY(-50%);
-  transform-origin: center;
 }
 
-/* Turn counter rotation - based on P1 position */
-.turn-counter-container.rotate-left {
-  transform: translateY(-50%) rotate(90deg);
+/* Turn counter button - rotates to face P1 */
+.turn-counter-btn.rotate-left {
+  transform: rotate(90deg);
 }
 
-.turn-counter-container.rotate-right {
-  transform: translateY(-50%) rotate(-90deg);
+.turn-counter-btn.rotate-right {
+  transform: rotate(-90deg);
 }
 
-.turn-counter-container.rotate-bottom {
+.turn-counter-btn.rotate-bottom {
+  transform: rotate(0deg);
+}
+
+/* Turn counter label container - positioned independently */
+.turn-counter-label-container {
+  position: absolute;
+  right: 14dvw; /* Adjust this to position label to the left of button */
+  top: 50%;
   transform: translateY(-50%);
+}
+
+/* Turn counter label - rotates to face P1 */
+.turn-label.rotate-left {
+  transform: rotate(90deg);
+}
+
+.turn-label.rotate-right {
+  transform: rotate(-90deg);
+}
+
+.turn-label.rotate-bottom {
+  transform: rotate(0deg);
 }
 
 /* Settings container - center */
@@ -187,15 +209,10 @@
   transform-origin: center;
 }
 
-/* 3-Player Options Bar - Horizontal Layout */
-.player-grid.player-count-3 .seat-swap-container {
-  left: 10%;
-  transform: translateY(-50%);
-}
-
-.player-grid.player-count-3 .turn-counter-container {
-  right: 10%;
-  transform: translateY(-50%);
+/* 3-Player Options Bar - Seat swap only */
+.player-grid.player-count-3 .seat-swap-container.left-side {
+  left: 3.472dvw;
+  transform: translateY(-50%) rotate(90deg);
 }
 
 /* Button labels */
@@ -226,7 +243,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
   width: 4.6875dvh;  /* 75px - GO button */
   height: 4.6875dvh;
   color: #ffffff;
@@ -234,9 +250,6 @@
   font-weight: 900;
 }
 
-.options-btn-icon:active {
-  transform: scale(0.95);
-}
 
 /* Seat swap button - back to original size */
 .seat-swap-btn {

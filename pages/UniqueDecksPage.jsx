@@ -50,43 +50,63 @@ function UniqueDecksPage() {
   // Get decks in order of first appearance
   const decks = deckOrder.map(name => deckMap[name]);
 
-  // Fetch commander art from Scryfall
+  // Fetch commander art from Scryfall in batches
   useEffect(() => {
     const fetchCommanderArts = async () => {
-      const arts = {};
+      const BATCH_SIZE = 4;
+      const batches = [];
       
-      for (const deck of decks) {
-        try {
-          // Check if this is a partner/background combo (contains " // ")
-          const commanders = deck.name.split(' // ').map(name => name.trim());
-          
-          if (commanders.length === 2) {
-            // Two commanders - fetch both arts
-            const [art1, art2] = await Promise.all([
-              scryfallService.getCommanderByName(commanders[0]),
-              scryfallService.getCommanderByName(commanders[1])
-            ]);
-            
-            arts[deck.name] = {
-              type: 'dual',
-              art1: scryfallService.getArtCrop(art1),
-              art2: scryfallService.getArtCrop(art2)
-            };
-          } else {
-            // Single commander
-            const card = await scryfallService.getCommanderByName(deck.name);
-            arts[deck.name] = {
-              type: 'single',
-              art: scryfallService.getArtCrop(card)
-            };
-          }
-        } catch (error) {
-          console.error(`Failed to fetch art for ${deck.name}:`, error);
-          // Don't set art for this commander - will show without image
-        }
+      // Split decks into batches of 4
+      for (let i = 0; i < decks.length; i += BATCH_SIZE) {
+        batches.push(decks.slice(i, i + BATCH_SIZE));
       }
       
-      setCommanderArts(arts);
+      // Process each batch sequentially
+      for (const batch of batches) {
+        const batchArts = {};
+        
+        // Fetch all arts in this batch concurrently
+        await Promise.all(
+          batch.map(async (deck) => {
+            try {
+              // Check if this is a partner/background combo (contains " // ")
+              const commanders = deck.name.split(' // ').map(name => name.trim());
+              
+              if (commanders.length === 2) {
+                // Two commanders - fetch both arts
+                const [art1, art2] = await Promise.all([
+                  scryfallService.getCommanderByName(commanders[0]),
+                  scryfallService.getCommanderByName(commanders[1])
+                ]);
+                
+                batchArts[deck.name] = {
+                  type: 'dual',
+                  art1: scryfallService.getArtCrop(art1),
+                  art2: scryfallService.getArtCrop(art2)
+                };
+              } else {
+                // Single commander
+                const card = await scryfallService.getCommanderByName(deck.name);
+                batchArts[deck.name] = {
+                  type: 'single',
+                  art: scryfallService.getArtCrop(card)
+                };
+              }
+            } catch (error) {
+              console.error(`Failed to fetch art for ${deck.name}:`, error);
+              // Don't set art for this commander - will show without image
+            }
+          })
+        );
+        
+        // Update state with this batch's arts
+        setCommanderArts(prev => ({ ...prev, ...batchArts }));
+        
+        // Small delay before next batch (100ms to respect rate limits)
+        if (batches.indexOf(batch) < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
     };
     
     if (decks.length > 0) {

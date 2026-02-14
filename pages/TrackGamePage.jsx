@@ -22,11 +22,18 @@ function TrackGamePage({ currentPlaygroup }) {
   
   // Game data
   const [gameDate, setGameDate] = useState(() => {
-    // Get today's date in local timezone (not UTC)
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
+    // Get today's date with 7am cutoff (games before 7am count as previous day)
+    const now = new Date();
+    const hour = now.getHours();
+    
+    // If before 7am, use previous day
+    if (hour < 7) {
+      now.setDate(now.getDate() - 1);
+    }
+    
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   });
   const [playerCount, setPlayerCount] = useState(4);
@@ -242,6 +249,9 @@ function TrackGamePage({ currentPlaygroup }) {
       const card = await scryfallService.getCommanderByName(commanderName);
       const colorId = scryfallService.getColorIdentity(card);
       
+      // Get the proper name to store (extracts front face for DFCs)
+      const nameToStore = scryfallService.getCommanderNameForStorage(card);
+      
       let finalColorId;
       
       // If this is a partner, merge with existing commander's colors
@@ -284,7 +294,7 @@ function TrackGamePage({ currentPlaygroup }) {
         const updated = [...prev];
         updated[index] = { 
           ...updated[index], 
-          [field]: commanderName,
+          [field]: nameToStore,
           colorId: finalColorId
         };
         return updated;

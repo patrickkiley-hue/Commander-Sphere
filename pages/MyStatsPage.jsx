@@ -11,10 +11,17 @@ import './MyStatsPage.css';
 function MyStatsPage({ currentPlaygroup, playerMapping }) {
   const navigate = useNavigate();
   const { games, isLoading } = useSheetData();
-  const [showSeasonStats, setShowSeasonStats] = useState(true);
+  
+  // Initialize from sessionStorage, default to true (season) if not set
+  const [showSeasonStats, setShowSeasonStats] = useState(() => {
+    const saved = sessionStorage.getItem('statsViewMode');
+    return saved ? saved === 'season' : true;
+  });
+  
   const [seasonData, setSeasonData] = useState(null);
   const [commanderArts, setCommanderArts] = useState({});
   const [advancedStatsEnabled, setAdvancedStatsEnabled] = useState(false);
+  const [sortColorsByWinRate, setSortColorsByWinRate] = useState(false);
 
   // Remove the old playerName loading logic - now comes from prop
   const playerName = playerMapping;
@@ -847,9 +854,19 @@ function MyStatsPage({ currentPlaygroup, playerMapping }) {
 
   const advancedMetrics = getAdvancedMetrics();
 
-  const midpoint = Math.ceil(colorIdentityStats.length / 2);
-  const col1 = colorIdentityStats.slice(0, midpoint);
-  const col2 = colorIdentityStats.slice(midpoint);
+  // Apply sorting to color identity stats if toggle is on
+  const displayColorIdentityStats = sortColorsByWinRate
+    ? [...colorIdentityStats].sort((a, b) => {
+        // Sort by win rate descending, nulls to end
+        if (a.winRate === null) return 1;
+        if (b.winRate === null) return -1;
+        return b.winRate - a.winRate;
+      })
+    : colorIdentityStats;
+
+  const midpoint = Math.ceil(displayColorIdentityStats.length / 2);
+  const col1 = displayColorIdentityStats.slice(0, midpoint);
+  const col2 = displayColorIdentityStats.slice(midpoint);
 
   useEffect(() => {
     const fetchArts = async () => {
@@ -966,13 +983,19 @@ function MyStatsPage({ currentPlaygroup, playerMapping }) {
               <div className="season-toggle">
                 <button
                   className={`toggle-btn ${showSeasonStats ? 'active' : ''}`}
-                  onClick={() => setShowSeasonStats(true)}
+                  onClick={() => {
+                    setShowSeasonStats(true);
+                    sessionStorage.setItem('statsViewMode', 'season');
+                  }}
                 >
                   Season
                 </button>
                 <button
                   className={`toggle-btn ${!showSeasonStats ? 'active' : ''}`}
-                  onClick={() => setShowSeasonStats(false)}
+                  onClick={() => {
+                    setShowSeasonStats(false);
+                    sessionStorage.setItem('statsViewMode', 'alltime');
+                  }}
                 >
                   All Time
                 </button>
@@ -1053,7 +1076,25 @@ function MyStatsPage({ currentPlaygroup, playerMapping }) {
         </div>
 
         <div className="stats-box full-width">
-          <h3 className="stats-box-title">Color Identity Win Rates</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 className="stats-box-title" style={{ margin: 0 }}>Color Identity Win Rates</h3>
+            <button
+              onClick={() => setSortColorsByWinRate(!sortColorsByWinRate)}
+              style={{
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                background: sortColorsByWinRate ? '#3b82f6' : '#64748b',
+                color: '#ffffff',
+                transition: 'background 0.2s'
+              }}
+            >
+              Sort by %
+            </button>
+          </div>
           <div className="color-identity-grid">
             <div className="color-identity-column">
               {col1.map((stat, index) => (
@@ -1159,7 +1200,12 @@ function MyStatsPage({ currentPlaygroup, playerMapping }) {
             <div className="stats-subtitle green-text">Best 2-opponent combinations</div>
             <div className="pod-matchup-list">
               {favorablePods.map((pod, index) => (
-                <div key={index} className="pod-matchup-item">
+                <div 
+                  key={index} 
+                  className="pod-matchup-item"
+                  onClick={() => navigate(`/pod-performance/${encodeURIComponent(pod.opponents[0])}/${encodeURIComponent(pod.opponents[1])}`)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="pod-matchup-left">
                     <div className="pod-matchup-names">{pod.opponents[0]} + {pod.opponents[1]}</div>
                     <div className="pod-matchup-record">{pod.wins}-{pod.losses} record ({pod.games} games)</div>
@@ -1185,7 +1231,12 @@ function MyStatsPage({ currentPlaygroup, playerMapping }) {
             <div className="stats-subtitle red-text">Worst 2-opponent combinations</div>
             <div className="pod-matchup-list">
               {unfavorablePods.map((pod, index) => (
-                <div key={index} className="pod-matchup-item">
+                <div 
+                  key={index} 
+                  className="pod-matchup-item"
+                  onClick={() => navigate(`/pod-performance/${encodeURIComponent(pod.opponents[0])}/${encodeURIComponent(pod.opponents[1])}`)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="pod-matchup-left">
                     <div className="pod-matchup-names">{pod.opponents[0]} + {pod.opponents[1]}</div>
                     <div className="pod-matchup-record">{pod.wins}-{pod.losses} record ({pod.games} games)</div>

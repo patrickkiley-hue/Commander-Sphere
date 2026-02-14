@@ -14,6 +14,7 @@ import {
 } from '../utils/statsCalculations';
 import { loadPlaygroupsFromFirestore, loadPlaygroupData } from '../utils/firestoreHelpers';
 import firebaseAuthService from '../services/firebaseAuth';
+import { getDisplayName } from '../utils/deckNameUtils';
 import ColorMana from '../components/ColorMana';
 import SwitchPlaygroupModal from '../components/SwitchPlaygroupModal';
 import JoinHostModal from '../components/JoinHostModal';
@@ -24,9 +25,18 @@ function HomePage({ currentPlaygroup, setCurrentPlaygroup, joinedPlaygroups, set
   const [showSwitchModal, setShowSwitchModal] = useState(false);
   const [showJoinHostModal, setShowJoinHostModal] = useState(false);
   const [unmappedCount, setUnmappedCount] = useState(0);
+  const [hasAttemptedRefresh, setHasAttemptedRefresh] = useState(false);
   
   // Get sheet data from Context
   const { games, isLoading, error, refreshSession } = useSheetData();
+  
+  // Automatically refresh session when error is detected
+  useEffect(() => {
+    if (error && !hasAttemptedRefresh && !isLoading) {
+      setHasAttemptedRefresh(true);
+      refreshSession();
+    }
+  }, [error, hasAttemptedRefresh, isLoading, refreshSession]);
   
   // Check for unmapped users if admin
   useEffect(() => {
@@ -61,12 +71,8 @@ function HomePage({ currentPlaygroup, setCurrentPlaygroup, joinedPlaygroups, set
     checkUnmappedUsers();
   }, [currentPlaygroup]);
   
-  // Show error if session expired
+  // Show loading state while refreshing session
   if (error) {
-    const handleRefreshSession = async () => {
-      await refreshSession();
-    };
-
     return (
       <div className="home-page">
         <header className="header">
@@ -78,27 +84,9 @@ function HomePage({ currentPlaygroup, setCurrentPlaygroup, joinedPlaygroups, set
         <div style={{ 
           padding: '40px', 
           textAlign: 'center', 
-          color: '#fca5a5' 
+          color: '#94a3b8' 
         }}>
-          <p>{isLoading ? 'Refreshing session...' : error}</p>
-          {!isLoading && (
-            <button 
-              onClick={handleRefreshSession}
-              style={{
-                marginTop: '20px',
-                padding: '12px 24px',
-                background: 'linear-gradient(90deg, #3b82f6 0%, #22d3ee 100%)',
-                border: 'none',
-                borderRadius: '8px',
-                color: '#ffffff',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: '600'
-              }}
-            >
-              Refresh Session
-            </button>
-          )}
+          <p>Refreshing session...</p>
         </div>
       </div>
     );
@@ -337,7 +325,7 @@ function HomePage({ currentPlaygroup, setCurrentPlaygroup, joinedPlaygroups, set
                 {index === 0 ? '🔥' : index === 1 ? '🏆' : '⭐'} {deck.category}
               </div>
               <div className="deck-commander">
-                {deck.name} <ColorMana colors={deck.colors} size="small" />
+                {getDisplayName(deck.name)} <ColorMana colors={deck.colors} size="small" />
               </div>
               <div className="deck-detail">
                 {deck.games} {deck.games === 1 ? 'game' : 'games'} • {deck.wins} {deck.wins === 1 ? 'win' : 'wins'} ({deck.winRate.toFixed(1)}%)

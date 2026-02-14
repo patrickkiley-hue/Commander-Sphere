@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSheetData } from '../context/SheetDataContext';
 import { getDisplayName } from '../utils/deckNameUtils';
+import { filterValidGames } from '../utils/statsCalculations';
 import { loadPlaygroupData } from '../utils/firestoreHelpers';
 import scryfallService from '../services/scryfallService';
 import ColorMana from '../components/ColorMana';
@@ -75,8 +76,11 @@ function MyDeckPage({ currentPlaygroup, playerMapping }) {
     fetchArt();
   }, [decodedDeckName]);
 
+  // Filter out incomplete games first
+  const validGames = filterValidGames(games);
+
   // Filter games where this player piloted this deck
-  const deckGames = games.filter(g => 
+  const deckGames = validGames.filter(g => 
     g.player === playerName && g.commander === decodedDeckName
   );
 
@@ -117,7 +121,7 @@ function MyDeckPage({ currentPlaygroup, playerMapping }) {
 
   // Add all players for each game (not just the user)
   Object.keys(gameSessions).forEach(gameId => {
-    const allPlayersInGame = games.filter(g => g.gameId === gameId);
+    const allPlayersInGame = validGames.filter(g => g.gameId === gameId);
     gameSessions[gameId].players = allPlayersInGame.map(g => ({
       player: g.player,
       commander: g.commander,
@@ -158,7 +162,7 @@ function MyDeckPage({ currentPlaygroup, playerMapping }) {
         <div style={{
           position: 'relative',
           width: '100%',
-          height: '475px',
+          paddingBottom: '56.25%', // 16:9 aspect ratio
           borderRadius: '12px',
           overflow: 'hidden',
           marginBottom: '24px',
@@ -229,9 +233,12 @@ function MyDeckPage({ currentPlaygroup, playerMapping }) {
 
           {/* Content */}
           <div style={{
-            position: 'relative',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             zIndex: 2,
-            height: '100%',
             padding: '24px 32px',
             display: 'flex',
             flexDirection: 'column',
@@ -240,7 +247,7 @@ function MyDeckPage({ currentPlaygroup, playerMapping }) {
             {/* Top left - Commander name */}
             <div>
               <h1 style={{
-                fontSize: '42px',
+                fontSize: 'clamp(24px, 5vw, 42px)',
                 fontWeight: 700,
                 color: '#ffffff',
                 margin: 0,
@@ -253,25 +260,28 @@ function MyDeckPage({ currentPlaygroup, playerMapping }) {
             {/* Bottom right - Record */}
             <div style={{
               alignSelf: 'flex-end',
-              textAlign: 'right'
+              textAlign: 'right',
+              marginBottom: '-12px'
             }}>
               <div style={{
-                fontSize: '48px',
+                fontSize: 'clamp(11px, 2vw, 13px)',
+                fontWeight: 300,
+                color: 'rgba(255, 255, 255, 0.6)',
+                textShadow: '0 2px 8px rgba(0, 0, 0, 0.8)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginBottom: '8px'
+              }}>
+                Your Record <span style={{ fontSize: 'clamp(16px, 3.5vw, 20px)', fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)' }}>{wins}-{losses}</span>
+              </div>
+              <div style={{
+                fontSize: 'clamp(32px, 7vw, 48px)',
                 fontWeight: 700,
                 color: '#ffffff',
                 lineHeight: 1,
-                marginBottom: '8px',
                 textShadow: '0 2px 8px rgba(0, 0, 0, 0.8)'
               }}>
                 {winRate}%
-              </div>
-              <div style={{
-                fontSize: '20px',
-                fontWeight: 600,
-                color: 'rgba(255, 255, 255, 0.9)',
-                textShadow: '0 2px 8px rgba(0, 0, 0, 0.8)'
-              }}>
-                {wins}-{losses}
               </div>
             </div>
           </div>

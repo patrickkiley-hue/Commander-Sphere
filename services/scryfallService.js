@@ -271,6 +271,20 @@ class ScryfallService {
   getArtCrop(card) {
     return this.getCardImage(card, 'art_crop');
   }
+
+  // Helper: Get the proper commander name to store
+  // For DFCs (double-faced cards), returns only the front face name
+  // For partners and single commanders, returns the full name
+  getCommanderNameForStorage(card) {
+    // DFCs have card_faces array - extract front face only
+    if (card.card_faces && card.card_faces.length > 0) {
+      // The front face is the first element
+      return card.card_faces[0].name;
+    }
+    
+    // For partners and single commanders, use the full card name
+    return card.name;
+  }
 }
 
 // Export singleton instance

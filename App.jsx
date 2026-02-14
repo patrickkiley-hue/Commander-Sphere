@@ -2,7 +2,7 @@ import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 console.log('Firebase initialized:', auth);
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import MyStatsPage from './pages/MyStatsPage';
@@ -10,6 +10,7 @@ import PodStatsPage from './pages/PodStatsPage';
 import PlayerStatsPage from './pages/PlayerStatsPage';
 import MyDeckPage from './pages/MyDeckPage';
 import OpponentDeckPage from './pages/OpponentDeckPage';
+import PodPerformancePage from './pages/PodPerformancePage';
 import TrackGamePage from './pages/TrackGamePage';
 import LiveTrackPage from './pages/LiveTrackPage';
 import AdministratorPage from './pages/AdministratorPage';
@@ -23,6 +24,17 @@ import {
   saveAllPlaygroupData 
 } from './utils/firestoreHelpers';
 import './App.css';
+
+// Custom component to scroll to top on route changes
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -151,6 +163,7 @@ function App() {
 
   return (
     <Router>
+      <ScrollToTop />
       <SheetDataProvider currentPlaygroup={currentPlaygroup}>
         <Routes>
           {/* Public route - Login */}
@@ -201,6 +214,10 @@ function App() {
           <Route 
             path="/opponent-deck/:pilotName/:deckName" 
             element={isAuthenticated ? <OpponentDeckPage currentPlaygroup={currentPlaygroup} playerMapping={playerMapping} /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/pod-performance/:opponent1/:opponent2" 
+            element={isAuthenticated ? <PodPerformancePage currentPlaygroup={currentPlaygroup} playerMapping={playerMapping} /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/track-game" 

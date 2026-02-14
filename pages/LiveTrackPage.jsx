@@ -215,10 +215,28 @@ function LiveTrackPage() {
       }
     };
 
-    requestFullscreen();
+    // Handler to recalculate viewport when fullscreen changes
+    const handleFullscreenChange = () => {
+      // Force viewport recalculation by triggering resize event
+      window.dispatchEvent(new Event('resize'));
+      console.log('Viewport recalculated after fullscreen change');
+    };
+
+    // Listen for fullscreen changes
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    // Delay fullscreen request to let browser settle dvh calculations
+    const timer = setTimeout(() => {
+      requestFullscreen();
+    }, 150);
 
     // Exit fullscreen on unmount
     return () => {
+      clearTimeout(timer);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      
       try {
         if (document.fullscreenElement || document.webkitFullscreenElement) {
           if (document.exitFullscreen) {
@@ -230,6 +248,63 @@ function LiveTrackPage() {
         }
       } catch (err) {
         console.log('Fullscreen exit error:', err.message);
+      }
+    };
+  }, []);
+
+  // Lock screen orientation to portrait
+  useEffect(() => {
+    const lockOrientation = async () => {
+      try {
+        if (screen.orientation && screen.orientation.lock) {
+          await screen.orientation.lock('portrait');
+          console.log('Orientation locked to portrait');
+        }
+      } catch (err) {
+        console.log('Orientation lock not supported or failed:', err.message);
+      }
+    };
+
+    lockOrientation();
+
+    // Unlock orientation on unmount
+    return () => {
+      try {
+        if (screen.orientation && screen.orientation.unlock) {
+          screen.orientation.unlock();
+          console.log('Orientation unlocked');
+        }
+      } catch (err) {
+        console.log('Orientation unlock error:', err.message);
+      }
+    };
+  }, []);
+
+  // Fix viewport for notched devices (extend to screen edges)
+  useEffect(() => {
+    // Get or create viewport meta tag
+    let viewportMeta = document.querySelector('meta[name="viewport"]');
+    let originalContent = '';
+
+    if (viewportMeta) {
+      originalContent = viewportMeta.getAttribute('content');
+      // Add viewport-fit=cover to extend under notch
+      viewportMeta.setAttribute('content', `${originalContent}, viewport-fit=cover`);
+    } else {
+      viewportMeta = document.createElement('meta');
+      viewportMeta.name = 'viewport';
+      viewportMeta.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
+      document.head.appendChild(viewportMeta);
+    }
+
+    // Restore original viewport on unmount
+    return () => {
+      if (viewportMeta) {
+        if (originalContent) {
+          viewportMeta.setAttribute('content', originalContent);
+        } else {
+          viewportMeta.remove();
+        }
       }
     };
   }, []);
@@ -651,11 +726,6 @@ function LiveTrackPage() {
 
   // Complete game
   const completeGame = async () => {
-    if (!selectedWinCondition && gameData.advancedStatsEnabled) {
-      alert('Please select a win condition');
-      return;
-    }
-
     try {
       const winnerIndex = players.findIndex(p => !p.eliminated);
       
@@ -956,11 +1026,11 @@ function LiveTrackPage() {
               <div className="commander-art-background">
                 {art?.isPartner ? (
                   <>
-                    <div className="art-half art-primary" style={{ backgroundImage: `url(${art.primary})` }} />
-                    <div className="art-half art-partner" style={{ backgroundImage: `url(${art.partner})` }} />
+                    <div className="art-half art-primary" style={{ backgroundImage: `url(${art.primary})`, backgroundPosition: 'top center' }} />
+                    <div className="art-half art-partner" style={{ backgroundImage: `url(${art.partner})`, backgroundPosition: 'top center' }} />
                   </>
                 ) : (
-                  <div className="art-full" style={{ backgroundImage: `url(${art?.primary})` }} />
+                  <div className="art-full" style={{ backgroundImage: `url(${art?.primary})`, backgroundPosition: 'top center' }} />
                 )}
               </div>
 
@@ -1077,10 +1147,10 @@ function LiveTrackPage() {
             const p1GridPos = getPlayerGridPosition(0); // Player 0 is always index 0
             if (p1GridPos.row === 2) { // Top row
               p1Position = p1GridPos.column === 2 ? 'left' : 'right';
-            } else if (p1GridPos.row === 4) { // Mid row (5-player only)
+            } else if (p1GridPos.row === 4 && playerCount === 5) { // Mid row (5-player only)
               p1Position = p1GridPos.column === 2 ? 'left' : 'right';
             }
-            // else p1Position stays 'bottom'
+            // else p1Position stays 'bottom' (for 3-player position E at row 4, and 4/5-player bottom positions)
           }
           
           return (
@@ -1117,26 +1187,28 @@ function LiveTrackPage() {
                 </button>
               </div>
 
-              {/* Turn Counter Button - Always on right side, rotates to face P1 (Advanced Stats Only) */}
+              {/* Turn Counter Button - Always on right side (Advanced Stats Only) */}
               {advancedStats && (
-                <div className={`options-btn-container turn-counter-container ${
-                  playerCount === 3 ? '' : `right-side rotate-${p1Position}`
-                }`}>
-                  <div className="options-btn-label turn-label">
-                    <div>P1</div>
-                    <div>TURN</div>
+                <>
+                  <div className="turn-counter-btn-container">
+                    <button 
+                      className={`options-btn-icon turn-counter-btn rotate-${p1Position}`}
+                      onClick={createLockedClickHandler(turnTracking ? advanceTurn : startTurnTracking)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        if (!isInputLockedRef.current && turnTracking) setShowTurnAdjust(true);
+                      }}
+                    >
+                      {turnTracking ? turnNumber : 'GO'}
+                    </button>
                   </div>
-                  <button 
-                    className="options-btn-icon turn-counter-btn" 
-                    onClick={createLockedClickHandler(turnTracking ? advanceTurn : startTurnTracking)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      if (!isInputLockedRef.current && turnTracking) setShowTurnAdjust(true);
-                    }}
-                  >
-                    {turnTracking ? turnNumber : 'GO'}
-                  </button>
-                </div>
+                  <div className="turn-counter-label-container">
+                    <div className={`options-btn-label turn-label rotate-${p1Position}`}>
+                      <div>&nbsp;P1&nbsp;</div>
+                      <div>TURN</div>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           );

@@ -9,7 +9,13 @@ import './PodStatsPage.css';
 function PodStatsPage({ currentPlaygroup }) {
   const navigate = useNavigate();
   const { games, isLoading } = useSheetData();
-  const [showSeasonStats, setShowSeasonStats] = useState(true);
+  
+  // Initialize from sessionStorage, default to true (season) if not set
+  const [showSeasonStats, setShowSeasonStats] = useState(() => {
+    const saved = sessionStorage.getItem('statsViewMode');
+    return saved ? saved === 'season' : true;
+  });
+  
   const [seasonData, setSeasonData] = useState(null);
 
   // Load season data from Firestore
@@ -258,13 +264,19 @@ function PodStatsPage({ currentPlaygroup }) {
             <div className="season-toggle">
               <button
                 className={`toggle-btn ${showSeasonStats ? 'active' : ''}`}
-                onClick={() => setShowSeasonStats(true)}
+                onClick={() => {
+                  setShowSeasonStats(true);
+                  sessionStorage.setItem('statsViewMode', 'season');
+                }}
               >
                 Season
               </button>
               <button
                 className={`toggle-btn ${!showSeasonStats ? 'active' : ''}`}
-                onClick={() => setShowSeasonStats(false)}
+                onClick={() => {
+                  setShowSeasonStats(false);
+                  sessionStorage.setItem('statsViewMode', 'alltime');
+                }}
               >
                 All Time
               </button>

@@ -13,7 +13,13 @@ function PlayerStatsPage({ currentPlaygroup }) {
   const { playerName } = useParams();
   const decodedPlayerName = decodeURIComponent(playerName);
   const { games, isLoading } = useSheetData();
-  const [showSeasonStats, setShowSeasonStats] = useState(true);
+  
+  // Initialize from sessionStorage, default to true (season) if not set
+  const [showSeasonStats, setShowSeasonStats] = useState(() => {
+    const saved = sessionStorage.getItem('statsViewMode');
+    return saved ? saved === 'season' : true;
+  });
+  
   const [seasonData, setSeasonData] = useState(null);
   const [commanderArts, setCommanderArts] = useState({});
 
@@ -160,8 +166,8 @@ function PlayerStatsPage({ currentPlaygroup }) {
       return b.firstGameId.localeCompare(a.firstGameId);
     })[0];
 
-    // Check if they're the same deck
-    if (favoriteCandidate?.name === workhorseCandidate?.name) {
+    // Check if they're the same deck (and both exist)
+    if (favoriteCandidate && workhorseCandidate && favoriteCandidate.name === workhorseCandidate.name) {
       const deck = favoriteCandidate;
       const otherDecks = remainingDecks.filter(d => d.name !== deck.name);
       
@@ -446,13 +452,19 @@ function PlayerStatsPage({ currentPlaygroup }) {
               <div className="season-toggle">
                 <button
                   className={`toggle-btn ${showSeasonStats ? 'active' : ''}`}
-                  onClick={() => setShowSeasonStats(true)}
+                  onClick={() => {
+                    setShowSeasonStats(true);
+                    sessionStorage.setItem('statsViewMode', 'season');
+                  }}
                 >
                   Season
                 </button>
                 <button
                   className={`toggle-btn ${!showSeasonStats ? 'active' : ''}`}
-                  onClick={() => setShowSeasonStats(false)}
+                  onClick={() => {
+                    setShowSeasonStats(false);
+                    sessionStorage.setItem('statsViewMode', 'alltime');
+                  }}
                 >
                   All Time
                 </button>
