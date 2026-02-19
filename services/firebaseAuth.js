@@ -557,6 +557,45 @@ class FirebaseAuthService {
 
     return await response.json();
   }
+
+  // Batch update game IDs (column B) for cleanup/renumbering
+  async batchUpdateGameIds(spreadsheetId, updates) {
+    // Refresh token if needed before making API call
+    await this.refreshTokenIfNeeded();
+    
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated');
+    }
+
+    // Build batch update data for column B (Game ID)
+    const batchData = updates.map(update => ({
+      range: `Games!B${update.rowNumber}`,
+      values: [[update.newGameId]]
+    }));
+
+    // Batch update all game IDs
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          valueInputOption: 'RAW',
+          data: batchData
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to batch update game IDs: ${errorData.error?.message || response.statusText}`);
+    }
+
+    return await response.json();
+  }
 }
 
 // Export singleton instance

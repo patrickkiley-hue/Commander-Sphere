@@ -1,0 +1,94 @@
+.history-page-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 24px 0;
+  text-align: left;
+}
+
+.sessions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.session-box {
+  background: rgba(30, 58, 95, 0.4);
+  border: 2px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  width: 100%;
+}
+
+.session-box:hover {
+  background: rgba(30, 58, 95, 0.6);
+  border-color: rgba(96, 165, 250, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.session-date {
+  font-size: 18px;
+  font-weight: 700;
+  color: #60a5fa;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.session-stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 16px;
+}
+
+.session-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.session-stat:nth-child(1) .stat-number {
+  color: #60a5fa; /* Blue for Players */
+}
+
+.session-stat:nth-child(2) .stat-number {
+  color: #a855f7; /* Purple for Games */
+}
+
+.session-stat:nth-child(3) .stat-number {
+  color: #22d3ee; /* Cyan for Decks */
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 768px) {
+  .sessions-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-number {
+    font-size: 28px;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+  }
+}

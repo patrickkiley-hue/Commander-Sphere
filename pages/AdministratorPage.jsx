@@ -42,6 +42,9 @@ function AdministratorPage({ currentPlaygroup }) {
   const [showKickModal, setShowKickModal] = useState(false);
   const [kickingUser, setKickingUser] = useState(null);
 
+  // Cleanup modal state
+  const [showCleanupModal, setShowCleanupModal] = useState(false);
+
   // Playgroup management state
   const [allPlaygroups, setAllPlaygroups] = useState([]);
   const [showPlaygroupConfirmModal, setShowPlaygroupConfirmModal] = useState(false);
@@ -352,6 +355,162 @@ function AdministratorPage({ currentPlaygroup }) {
     } catch (error) {
       console.error('Error kicking member:', error);
       alert('Failed to kick member');
+    }
+  };
+
+  // Cleanup handlers
+  const handleCleanupClick = () => {
+    setShowCleanupModal(true);
+  };
+
+  const handleCleanupConfirm = async () => {
+    if (!currentPlaygroup?.spreadsheetId) return;
+    
+    setShowCleanupModal(false);
+    
+    try {
+      // Show processing message
+      setSaveMessage('Processing cleanup...');
+      setIsSaving(true);
+      
+      const spreadsheetId = currentPlaygroup.spreadsheetId;
+      
+      // Step 1: Fetch all sheet data (columns A-J)
+      const allRows = await firebaseAuthService.getSheetData(spreadsheetId, 'Games!A:J');
+      
+      if (!allRows || allRows.length <= 1) {
+        setSaveMessage('No data found to clean');
+        setIsSaving(false);
+        return;
+      }
+      
+      // Skip header row (index 0)
+      const dataRows = allRows.slice(1);
+      
+      // Step 2: Group rows by gameId (column B, index 1)
+      const gameGroups = {};
+      dataRows.forEach((row, index) => {
+        const gameId = row[1]; // Column B
+        if (!gameId) return; // Skip rows without gameId
+        
+        if (!gameGroups[gameId]) {
+          gameGroups[gameId] = [];
+        }
+        gameGroups[gameId].push({
+          rowNumber: index + 2, // +2 (header is row 1, data starts at row 2)
+          data: row
+        });
+      });
+      
+      // Step 3: Identify complete games vs stubs
+      const completeGames = [];
+      const stubGameIds = [];
+      
+      Object.entries(gameGroups).forEach(([gameId, rows]) => {
+        // Check if any row has "Win" in column G (index 6)
+        const hasWinner = rows.some(r => r.data[6] === 'Win');
+        
+        if (hasWinner) {
+          completeGames.push({ gameId, rows });
+        } else {
+          stubGameIds.push(gameId);
+        }
+      });
+      
+      console.log(`Found ${stubGameIds.length} stub games and ${completeGames.length} complete games`);
+      
+      if (stubGameIds.length === 0) {
+        setSaveMessage('No incomplete games found to clean up');
+        setIsSaving(false);
+        return;
+      }
+      
+      // Step 4: Delete stub games (using existing deleteGameRows method)
+      let totalDeleted = 0;
+      for (const stubId of stubGameIds) {
+        const result = await firebaseAuthService.deleteGameRows(spreadsheetId, stubId);
+        totalDeleted += result.deletedCount || 0;
+        console.log(`Deleted stub game ${stubId}: ${result.deletedCount} rows`);
+      }
+      
+      // Step 5: Re-fetch data after deletions
+      const updatedRows = await firebaseAuthService.getSheetData(spreadsheetId, 'Games!A:J');
+      const updatedDataRows = updatedRows.slice(1);
+      
+      // Re-group by gameId
+      const updatedGameGroups = {};
+      updatedDataRows.forEach((row, index) => {
+        const gameId = row[1];
+        if (!gameId) return;
+        
+        if (!updatedGameGroups[gameId]) {
+          updatedGameGroups[gameId] = [];
+        }
+        updatedGameGroups[gameId].push({
+          rowNumber: index + 2,
+          gameId: gameId
+        });
+      });
+      
+      // Step 6: Group by date prefix and renumber
+      const byDatePrefix = {};
+      Object.entries(updatedGameGroups).forEach(([gameId, rows]) => {
+        const parts = gameId.split('-'); // e.g., "001-A03" -> ["001", "A03"]
+        if (parts.length !== 2) return;
+        
+        const datePrefix = `${parts[0]}-${parts[1].charAt(0)}`; // e.g., "001-A"
+        
+        if (!byDatePrefix[datePrefix]) {
+          byDatePrefix[datePrefix] = [];
+        }
+        byDatePrefix[datePrefix].push({ gameId, rows });
+      });
+      
+      // Step 7: Build batch updates for renumbering
+      const batchUpdates = [];
+      
+      Object.entries(byDatePrefix).forEach(([datePrefix, games]) => {
+        // Sort by current game number
+        games.sort((a, b) => {
+          const numA = parseInt(a.gameId.split('-')[1].slice(1)); // "A03" -> 3
+          const numB = parseInt(b.gameId.split('-')[1].slice(1));
+          return numA - numB;
+        });
+        
+        // Assign new sequential numbers
+        games.forEach((game, index) => {
+          const newGameNumber = String(index + 1).padStart(2, '0');
+          const newGameId = `${datePrefix}${newGameNumber}`;
+          
+          // Only update if gameId changed
+          if (game.gameId !== newGameId) {
+            // Add all rows for this game to batch update
+            game.rows.forEach(row => {
+              batchUpdates.push({
+                rowNumber: row.rowNumber,
+                newGameId: newGameId
+              });
+            });
+          }
+        });
+      });
+      
+      // Step 8: Apply batch updates
+      if (batchUpdates.length > 0) {
+        console.log(`Applying ${batchUpdates.length} game ID updates`);
+        await firebaseAuthService.batchUpdateGameIds(spreadsheetId, batchUpdates);
+      }
+      
+      const renumberedGames = new Set(batchUpdates.map(u => u.newGameId)).size;
+      setSaveMessage(`Cleanup complete! Deleted ${totalDeleted} rows from ${stubGameIds.length} incomplete games. Renumbered ${renumberedGames} games.`);
+      setTimeout(() => setSaveMessage(''), 8000);
+      setIsSaving(false);
+      
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      setSaveMessage('Failed to cleanup: ' + error.message);
+      setTimeout(() => setSaveMessage(''), 8000);
+      setIsSaving(false);
     }
   };
 
@@ -816,6 +975,31 @@ function AdministratorPage({ currentPlaygroup }) {
                   </div>
                 </div>
               )}
+
+              {/* Sheet Data Cleanup */}
+              <div className="cleanup-section" style={{ marginTop: '24px' }}>
+                <h4 className="subsection-title">Sheet Data Cleanup</h4>
+                <p className="section-description">
+                  Remove incomplete game data and renumber games to fix gaps in numbering
+                </p>
+                <button
+                  className="cleanup-button"
+                  onClick={handleCleanupClick}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#ef4444',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    marginTop: '12px'
+                  }}
+                >
+                  Delete Game Fragments
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -1009,6 +1193,35 @@ function AdministratorPage({ currentPlaygroup }) {
                 disabled={isSaving}
               >
                 {isSaving ? 'Generating...' : 'REGENERATE'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cleanup Confirmation Modal */}
+      {showCleanupModal && (
+        <div className="modal-overlay" onClick={() => setShowCleanupModal(false)}>
+          <div className="kick-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="kick-modal-title">Delete Game Fragments?</h3>
+            <p className="kick-modal-text" style={{ color: '#ef4444', fontWeight: 600 }}>
+              Do not confirm with live-track games in progress
+            </p>
+            <p className="kick-modal-text">
+              This will delete unfinished or incomplete game data and renumber games accordingly. Would you like to proceed?
+            </p>
+            <div className="kick-modal-actions">
+              <button
+                className="kick-cancel-button"
+                onClick={() => setShowCleanupModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="kick-confirm-button"
+                onClick={handleCleanupConfirm}
+              >
+                CONFIRM
               </button>
             </div>
           </div>

@@ -305,6 +305,38 @@ function PodStatsPage({ currentPlaygroup }) {
               ))}
             </div>
 
+            {/* Full Game History Button */}
+            <button 
+              className="full-history-button"
+              onClick={() => navigate('/pod-history')}
+              style={{
+                width: '100%',
+                margin: '24px 0',
+                padding: '16px 32px',
+                fontSize: '18px',
+                fontWeight: 700,
+                color: '#ffffff',
+                background: 'linear-gradient(135deg, #3E2723 0%, #5D4037 40%, #8D6E63 70%, #f5e6d3 100%)',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+                display: 'block'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+              }}
+            >
+              Full Game History
+            </button>
+
             {/* Turn Order and Color Inclusion Side by Side */}
             <div className="stats-row">
               <div className="stats-box">

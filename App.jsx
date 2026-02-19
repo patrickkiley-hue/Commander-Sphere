@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import MyStatsPage from './pages/MyStatsPage';
 import PodStatsPage from './pages/PodStatsPage';
+import PodHistoryPage from './pages/PodHistoryPage';
 import PlayerStatsPage from './pages/PlayerStatsPage';
 import MyDeckPage from './pages/MyDeckPage';
 import OpponentDeckPage from './pages/OpponentDeckPage';
@@ -15,6 +16,7 @@ import TrackGamePage from './pages/TrackGamePage';
 import LiveTrackPage from './pages/LiveTrackPage';
 import AdministratorPage from './pages/AdministratorPage';
 import GamesPlayedPage from './pages/GamesPlayedPage';
+import GameNightReportPage from './pages/GameNightReportPage';
 import TotalPlayersPage from './pages/TotalPlayersPage';
 import UniqueDecksPage from './pages/UniqueDecksPage';
 import firebaseAuthService from './services/firebaseAuth';
@@ -204,6 +206,10 @@ function App() {
             element={isAuthenticated ? <PodStatsPage currentPlaygroup={currentPlaygroup} /> : <Navigate to="/login" />} 
           />
           <Route 
+            path="/pod-history" 
+            element={isAuthenticated ? <PodHistoryPage currentPlaygroup={currentPlaygroup} /> : <Navigate to="/login" />} 
+          />
+          <Route 
             path="/player/:playerName" 
             element={isAuthenticated ? <PlayerStatsPage currentPlaygroup={currentPlaygroup} /> : <Navigate to="/login" />} 
           />
@@ -234,6 +240,10 @@ function App() {
           <Route 
             path="/games-played" 
             element={isAuthenticated ? <GamesPlayedPage currentPlaygroup={currentPlaygroup} /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/game-night-report/:sessionId" 
+            element={isAuthenticated ? <GameNightReportPage currentPlaygroup={currentPlaygroup} /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/total-players" 

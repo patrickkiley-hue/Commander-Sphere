@@ -274,7 +274,8 @@ function TrackGamePage({ currentPlaygroup }) {
           finalColorId = sortedColors.length > 0 ? sortedColors : ['C'];
         } catch (err) {
           console.error('Error fetching main commander:', err);
-          finalColorId = colorId.length > 0 ? colorId : ['C'];
+          const sortedColors = sortColorsWUBRG(colorId);
+          finalColorId = sortedColors.length > 0 ? sortedColors : ['C'];
         }
       } 
       // If this is the main commander and a partner exists, merge colors
@@ -289,12 +290,14 @@ function TrackGamePage({ currentPlaygroup }) {
           finalColorId = sortedColors.length > 0 ? sortedColors : ['C'];
         } catch (err) {
           console.error('Error fetching partner commander:', err);
-          finalColorId = colorId.length > 0 ? colorId : ['C'];
+          const sortedColors = sortColorsWUBRG(colorId);
+          finalColorId = sortedColors.length > 0 ? sortedColors : ['C'];
         }
       }
       // Single commander, no partner
       else {
-        finalColorId = colorId.length > 0 ? colorId : ['C'];
+        const sortedColors = sortColorsWUBRG(colorId);
+        finalColorId = sortedColors.length > 0 ? sortedColors : ['C'];
       }
       
       // Update both commander name and colorId in a SINGLE state update
