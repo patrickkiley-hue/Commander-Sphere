@@ -29,6 +29,7 @@ function LiveTrackPage() {
   const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [lifeChangeIndicators, setLifeChangeIndicators] = useState({}); // {playerIndex: amount}
+  const [isSavingGame, setIsSavingGame] = useState(false);
   
   // Commander art URLs
   const [commanderArts, setCommanderArts] = useState({});
@@ -726,10 +727,14 @@ function LiveTrackPage() {
 
   // Complete game
   const completeGame = async () => {
+    // Show saving overlay immediately
+    setIsSavingGame(true);
+    
     try {
       const winnerIndex = players.findIndex(p => !p.eliminated);
       
       if (winnerIndex === -1) {
+        setIsSavingGame(false);
         alert('No winner found - please restore a player');
         return;
       }
@@ -756,10 +761,11 @@ function LiveTrackPage() {
       // Clear localStorage
       localStorage.removeItem('liveTrackGame');
 
-      // Navigate home
+      // Navigate home (overlay stays visible during navigation)
       navigate('/');
     } catch (error) {
       console.error('Error completing game:', error);
+      setIsSavingGame(false);
       alert('Failed to save game: ' + error.message);
     }
   };
@@ -1147,10 +1153,10 @@ function LiveTrackPage() {
             const p1GridPos = getPlayerGridPosition(0); // Player 0 is always index 0
             if (p1GridPos.row === 2) { // Top row
               p1Position = p1GridPos.column === 2 ? 'left' : 'right';
-            } else if (p1GridPos.row === 4 && playerCount === 5) { // Mid row (5-player only)
+            } else if (p1GridPos.row === 4 && playerCount !== 3) { // Row 4 for 4-player and 5-player (not 3-player)
               p1Position = p1GridPos.column === 2 ? 'left' : 'right';
             }
-            // else p1Position stays 'bottom' (for 3-player position E at row 4, and 4/5-player bottom positions)
+            // else p1Position stays 'bottom' (for 3-player position E at row 4, and bottom positions in other layouts)
           }
           
           return (
@@ -1204,7 +1210,7 @@ function LiveTrackPage() {
                   </div>
                   <div className="turn-counter-label-container">
                     <div className={`options-btn-label turn-label rotate-${p1Position}`}>
-                      <div>&nbsp;P1&nbsp;</div>
+                      <div>&nbsp;&nbsp;&nbsp;P1&nbsp;</div>
                       <div>TURN</div>
                     </div>
                   </div>
@@ -1568,6 +1574,37 @@ function LiveTrackPage() {
                 Confirm
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Saving Game Overlay */}
+      {isSavingGame && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'linear-gradient(135deg, #0a1628 0%, #132742 100%)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          color: '#ffffff'
+        }}>
+          <div style={{
+            fontSize: '24px',
+            fontWeight: 600,
+            marginBottom: '20px'
+          }}>
+            Saving game
+            <span className="pulsing-dots">
+              <span style={{ animationDelay: '0s' }}>.</span>
+              <span style={{ animationDelay: '0.2s' }}>.</span>
+              <span style={{ animationDelay: '0.4s' }}>.</span>
+            </span>
           </div>
         </div>
       )}

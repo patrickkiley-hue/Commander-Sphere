@@ -184,7 +184,7 @@
 /* Turn counter label container - positioned independently */
 .turn-counter-label-container {
   position: absolute;
-  right: 14dvw; /* Adjust this to position label to the left of button */
+  right: 16dvw; /* Adjust this to position label to the left of button */
   top: 50%;
   transform: translateY(-50%);
 }
@@ -243,6 +243,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
   width: 4.6875dvh;  /* 75px - GO button */
   height: 4.6875dvh;
   color: #ffffff;
@@ -250,6 +251,9 @@
   font-weight: 900;
 }
 
+.options-btn-icon:active {
+  transform: scale(0.95);
+}
 
 /* Seat swap button - back to original size */
 .seat-swap-btn {
@@ -1288,4 +1292,19 @@
   color: #ffffff;
   min-width: 120px;
   text-align: center;
+}
+
+/* Pulsing dots animation for saving overlay */
+.pulsing-dots span {
+  animation: pulse 1.4s ease-in-out infinite;
+  opacity: 0;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
 }
