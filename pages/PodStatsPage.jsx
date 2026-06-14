@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { loadPlaygroupData, checkAndRollSeason } from '../utils/firestoreHelpers';
 import ColorMana from '../components/ColorMana';
 import './BlankPage.css';
@@ -8,7 +8,7 @@ import './PodStatsPage.css';
 
 function PodStatsPage({ currentPlaygroup }) {
   const navigate = useNavigate();
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
   
   // Initialize from sessionStorage, default to true (season) if not set
   const [showSeasonStats, setShowSeasonStats] = useState(() => {
@@ -55,11 +55,12 @@ function PodStatsPage({ currentPlaygroup }) {
       return games; // All-time stats
     }
 
-    // Simple calendar-based filtering
+    // Filter game documents by date — compare ISO date strings directly
     if (seasonData.startDate) {
-      return games.filter(g => g.date >= seasonData.startDate);
+      const startISO = seasonData.startDate.toISOString();
+      return games.filter(g => g.date && g.date >= startISO);
     }
-    
+
     return games;
   };
 
@@ -68,15 +69,16 @@ function PodStatsPage({ currentPlaygroup }) {
   // Calculate player stats
   const getPlayerStats = () => {
     const stats = {};
-    
+
     filteredGames.forEach(game => {
-      if (!stats[game.player]) {
-        stats[game.player] = { games: 0, wins: 0 };
-      }
-      stats[game.player].games++;
-      if (game.isWin) stats[game.player].wins++;
+      game.players.forEach(p => {
+        if (!p.player) return;
+        if (!stats[p.player]) stats[p.player] = { games: 0, wins: 0 };
+        stats[p.player].games++;
+        if (p.isWin) stats[p.player].wins++;
+      });
     });
-    
+
     return Object.entries(stats)
       .map(([name, data]) => ({
         name,
@@ -90,16 +92,15 @@ function PodStatsPage({ currentPlaygroup }) {
   // Calculate turn order win rates
   const getTurnOrderStats = () => {
     const stats = {};
-    
+
     filteredGames.forEach(game => {
-      const pos = game.turnOrder;
-      if (!pos) return;
-      
-      if (!stats[pos]) {
-        stats[pos] = { games: 0, wins: 0 };
-      }
-      stats[pos].games++;
-      if (game.isWin) stats[pos].wins++;
+      game.players.forEach(p => {
+        const pos = p.turnOrder;
+        if (!pos) return;
+        if (!stats[pos]) stats[pos] = { games: 0, wins: 0 };
+        stats[pos].games++;
+        if (p.isWin) stats[pos].wins++;
+      });
     });
     
     const results = Object.entries(stats)
@@ -137,12 +138,14 @@ function PodStatsPage({ currentPlaygroup }) {
     });
     
     filteredGames.forEach(game => {
-      const colors = game.colorId || [];
-      colors.forEach(color => {
-        if (stats[color]) {
-          stats[color].games++;
-          if (game.isWin) stats[color].wins++;
-        }
+      game.players.forEach(p => {
+        const colors = p.colorId || [];
+        colors.forEach(color => {
+          if (stats[color]) {
+            stats[color].games++;
+            if (p.isWin) stats[color].wins++;
+          }
+        });
       });
     });
     
@@ -209,24 +212,15 @@ function PodStatsPage({ currentPlaygroup }) {
     });
     
     filteredGames.forEach(game => {
-      // Get color identity from game, handling both array and string formats
-      let gameColors = game.colorId || [];
-      
-      // Normalize colorId to array if it's not already
-      if (typeof gameColors === 'string') {
-        gameColors = gameColors.split('');
-      }
-      
-      // Handle empty array or no colors as colorless
-      if (gameColors.length === 0) {
-        gameColors = ['C'];
-      }
-      
-      const key = [...gameColors].sort().join('');
-      if (stats[key]) {
-        stats[key].games++;
-        if (game.isWin) stats[key].wins++;
-      }
+      game.players.forEach(p => {
+        let colors = Array.isArray(p.colorId) ? p.colorId : [];
+        if (colors.length === 0) colors = ['C'];
+        const key = [...colors].sort().join('');
+        if (stats[key]) {
+          stats[key].games++;
+          if (p.isWin) stats[key].wins++;
+        }
+      });
     });
     
     return identities.map(id => {

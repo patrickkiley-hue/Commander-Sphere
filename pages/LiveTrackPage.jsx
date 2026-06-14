@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import firebaseAuthService from '../services/firebaseAuth';
+import { completeLiveGame, deleteGame } from '../services/gameService';
 import scryfallService from '../services/scryfallService';
 import './LiveTrackPage.css';
 
@@ -116,13 +116,12 @@ function LiveTrackPage() {
           fetchCommanderArt(p.commander, p.index);
         });
       } else {
-        // Initialize new game
+        // Initialize new game from players array written by TrackGamePage
         setGameData(data);
-        
-        const initialPlayers = data.playerRows.map((pr, i) => ({
-          player: pr.player,
-          commander: pr.commander,
-          rowNumber: pr.rowNumber,
+
+        const initialPlayers = (data.players || []).map((p, i) => ({
+          player: p.player,
+          commander: p.commander,
           index: i,
           life: 40,
           commanderDamage: {},
@@ -132,10 +131,10 @@ function LiveTrackPage() {
         }));
 
         setPlayers(initialPlayers);
-        
+
         // Fetch commander arts for new game
-        data.playerRows.forEach((pr, i) => {
-          fetchCommanderArt(pr.commander, i);
+        (data.players || []).forEach((p, i) => {
+          fetchCommanderArt(p.commander, i);
         });
       }
       
@@ -700,24 +699,13 @@ function LiveTrackPage() {
     setShowCancelConfirm(true);
   };
 
-  // Confirm cancel tracking
+  // Confirm cancel tracking — deletes the in-progress game doc from Firestore
   const confirmCancelTracking = async () => {
     setShowCancelConfirm(false);
-    
+
     try {
-      // Delete rows from Google Sheets
-      console.log('Deleting game rows from Google Sheets...');
-      const result = await firebaseAuthService.deleteGameRows(gameData.spreadsheetId, gameData.gameId);
-      console.log(`Deleted ${result.deletedCount} rows from Google Sheets`);
-      
-      // Delete Firestore tracking
-      const { deleteLiveGameTracking } = await import('../utils/firestoreHelpers');
-      await deleteLiveGameTracking(gameData.spreadsheetId, gameData.gameId);
-      
-      // Clear localStorage
+      await deleteGame(gameData.spreadsheetId, gameData.gameId);
       localStorage.removeItem('liveTrackGame');
-      
-      // Navigate home
       navigate('/');
     } catch (error) {
       console.error('Error canceling tracking:', error);
@@ -725,43 +713,28 @@ function LiveTrackPage() {
     }
   };
 
-  // Complete game
+  // Complete game — updates the Firestore game document with winner, turn, win condition
   const completeGame = async () => {
-    // Show saving overlay immediately
     setIsSavingGame(true);
-    
+
     try {
       const winnerIndex = players.findIndex(p => !p.eliminated);
-      
+
       if (winnerIndex === -1) {
         setIsSavingGame(false);
         alert('No winner found - please restore a player');
         return;
       }
 
-      // Update each player's row in Sheets
-      for (let i = 0; i < players.length; i++) {
-        const player = players[i];
+      await completeLiveGame(
+        gameData.spreadsheetId,
+        gameData.gameId,
+        winnerIndex,
+        turnNumber > 0 ? turnNumber : null,
+        selectedWinCondition || ''
+      );
 
-        await firebaseAuthService.completeLiveGame(
-          gameData.spreadsheetId,
-          player.rowNumber,
-          {
-            result: i === winnerIndex ? 'Win' : 'Loss',
-            lastTurn: i === winnerIndex && turnNumber > 0 ? turnNumber : null,
-            winCondition: i === winnerIndex ? selectedWinCondition : ''
-          }
-        );
-      }
-
-      // Delete Firestore tracking
-      const { deleteLiveGameTracking } = await import('../utils/firestoreHelpers');
-      await deleteLiveGameTracking(gameData.spreadsheetId, gameData.gameId);
-
-      // Clear localStorage
       localStorage.removeItem('liveTrackGame');
-
-      // Navigate home (overlay stays visible during navigation)
       navigate('/');
     } catch (error) {
       console.error('Error completing game:', error);

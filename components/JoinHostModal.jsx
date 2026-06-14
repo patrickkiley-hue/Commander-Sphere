@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
-import firebaseAuthService from '../services/firebaseAuth';
 import { saveAllPlaygroupData, initializePlaygroup, addMemberToPlaygroup, loadUserProfile, findPlaygroupByJoinCode } from '../utils/firestoreHelpers';
 import './JoinHostModal.css';
 
@@ -38,15 +37,11 @@ function JoinHostModal({ onClose, onPlaygroupCreated }) {
   };
 
   const handleJoin = async () => {
-    // Check if profile is complete
     const profileComplete = await checkProfileComplete();
-    if (!profileComplete) {
-      setShowProfilePrompt(true);
-      return;
-    }
+    if (!profileComplete) { setShowProfilePrompt(true); return; }
 
     if (!joinInput.trim()) {
-      setError('Please enter the required information');
+      setError('Please enter a join code');
       return;
     }
 
@@ -54,98 +49,42 @@ function JoinHostModal({ onClose, onPlaygroupCreated }) {
     setError(null);
 
     try {
-      let spreadsheetId = null;
-      let playgroupInfo = null;
+      const playgroup = await findPlaygroupByJoinCode(joinInput.trim());
 
-      if (joinMethod === 'code') {
-        // Look up playgroup by join code
-        const playgroup = await findPlaygroupByJoinCode(joinInput.trim());
-        
-        if (!playgroup) {
-          setError('Invalid join code. Please check and try again.');
-          setIsLoading(false);
-          return;
-        }
-        
-        spreadsheetId = playgroup.spreadsheetId;
-        
-        // Create playgroup object
-        playgroupInfo = {
-          name: playgroup.name,
-          spreadsheetId: spreadsheetId,
-          spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
-          role: 'member',
-          joinedAt: new Date().toISOString()
-        };
-        
-      } else if (joinMethod === 'url') {
-        // Extract spreadsheet ID from URL
-        spreadsheetId = firebaseAuthService.extractSpreadsheetId(joinInput);
-        
-        if (!spreadsheetId) {
-          setError('Invalid Google Sheets URL');
-          setIsLoading(false);
-          return;
-        }
-
-        // Try to fetch sheet data to verify access and get playgroup name
-        try {
-          await firebaseAuthService.getSheetData(spreadsheetId, 'Games!A1:A1');
-          
-          // Get the actual sheet title
-          const metadata = await firebaseAuthService.getSpreadsheetMetadata(spreadsheetId);
-          let sheetTitle = metadata.properties.title;
-          
-          // Remove " - Commander Tracker" suffix if present
-          if (sheetTitle.endsWith(' - Commander Tracker')) {
-            sheetTitle = sheetTitle.replace(' - Commander Tracker', '');
-          }
-          
-          // Create playgroup object
-          playgroupInfo = {
-            name: sheetTitle,
-            spreadsheetId: spreadsheetId,
-            spreadsheetUrl: joinInput,
-            role: 'member',
-            joinedAt: new Date().toISOString()
-          };
-        } catch (err) {
-          setError('Unable to access this sheet. Please check that you have permission or ask the admin to share it with you.');
-          setIsLoading(false);
-          return;
-        }
+      if (!playgroup) {
+        setError('Invalid join code. Please check and try again.');
+        setIsLoading(false);
+        return;
       }
 
-      // Get existing playgroups from localStorage (as backup)
+      const { spreadsheetId } = playgroup;
       const existingPlaygroups = JSON.parse(localStorage.getItem('joinedPlaygroups') || '[]');
-      
-      // Check if already joined
-      const alreadyJoined = existingPlaygroups.some(pg => pg.spreadsheetId === spreadsheetId);
-      if (alreadyJoined) {
+
+      if (existingPlaygroups.some(pg => pg.spreadsheetId === spreadsheetId)) {
         setError('You have already joined this playgroup');
         setIsLoading(false);
         return;
       }
 
+      const playgroupInfo = {
+        name: playgroup.name,
+        spreadsheetId,
+        role: 'member',
+        joinedAt: new Date().toISOString()
+      };
+
       existingPlaygroups.push(playgroupInfo);
-      
-      // Save to Firestore
+
       const user = auth.currentUser;
       if (user) {
-        // Add user to playgroup members
         await addMemberToPlaygroup(spreadsheetId, user.uid);
-        
         await saveAllPlaygroupData(user.uid, playgroupInfo, existingPlaygroups);
       }
-      
-      // Also save to localStorage as backup
+
       localStorage.setItem('joinedPlaygroups', JSON.stringify(existingPlaygroups));
       localStorage.setItem('currentPlaygroup', JSON.stringify(playgroupInfo));
 
-      // Notify parent and close
-      if (onPlaygroupCreated) {
-        onPlaygroupCreated(playgroupInfo);
-      }
+      if (onPlaygroupCreated) onPlaygroupCreated(playgroupInfo);
       onClose();
     } catch (err) {
       console.error('Join error:', err);
@@ -155,12 +94,8 @@ function JoinHostModal({ onClose, onPlaygroupCreated }) {
   };
 
   const handleHost = async () => {
-    // Check if profile is complete
     const profileComplete = await checkProfileComplete();
-    if (!profileComplete) {
-      setShowProfilePrompt(true);
-      return;
-    }
+    if (!profileComplete) { setShowProfilePrompt(true); return; }
 
     if (!playgroupName.trim()) {
       setError('Please enter a playgroup name');
@@ -171,49 +106,31 @@ function JoinHostModal({ onClose, onPlaygroupCreated }) {
     setError(null);
 
     try {
-      console.log('Creating sheet with name:', `${playgroupName} - Commander Tracker`);
-      
-      // Create the Google Sheet with proper template
-      const sheet = await firebaseAuthService.createSheet(`${playgroupName} - Commander Tracker`);
-      
-      console.log('Sheet created:', sheet);
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not signed in');
 
-      // Create playgroup object
+      // Generate a unique playgroup ID (replaces the old spreadsheetId)
+      const playgroupId = `pg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      // Initialize playgroup document in Firestore
+      await initializePlaygroup(playgroupId, playgroupName, user.uid);
+
       const playgroupInfo = {
         name: playgroupName,
-        spreadsheetId: sheet.spreadsheetId,
-        spreadsheetUrl: sheet.spreadsheetUrl,
+        spreadsheetId: playgroupId,
         role: 'admin',
         createdAt: new Date().toISOString()
       };
 
-      console.log('Playgroup info:', playgroupInfo);
+      const existingPlaygroups = JSON.parse(localStorage.getItem('joinedPlaygroups') || '[]');
+      const updatedPlaygroups = [...existingPlaygroups, playgroupInfo];
 
-      // Save as first playgroup
-      const playgroups = [playgroupInfo];
-      
-      // Initialize playgroup document in Firestore
-      const user = auth.currentUser;
-      if (user) {
-        await initializePlaygroup(
-          sheet.spreadsheetId,
-          playgroupName,
-          user.uid
-        );
-        
-        await saveAllPlaygroupData(user.uid, playgroupInfo, playgroups);
-      }
-      
-      // Also save to localStorage as backup
-      localStorage.setItem('joinedPlaygroups', JSON.stringify(playgroups));
+      await saveAllPlaygroupData(user.uid, playgroupInfo, updatedPlaygroups);
+
+      localStorage.setItem('joinedPlaygroups', JSON.stringify(updatedPlaygroups));
       localStorage.setItem('currentPlaygroup', JSON.stringify(playgroupInfo));
 
-      console.log('Saved to Firestore and localStorage');
-
-      // Notify parent and close
-      if (onPlaygroupCreated) {
-        onPlaygroupCreated(playgroupInfo);
-      }
+      if (onPlaygroupCreated) onPlaygroupCreated(playgroupInfo);
       onClose();
     } catch (err) {
       console.error('Host error:', err);
@@ -236,37 +153,15 @@ function JoinHostModal({ onClose, onPlaygroupCreated }) {
             <h3 className="panel-title">Join Playgroup</h3>
             
             <div className="panel-content">
-              <div className="join-method-selector">
-                <button 
-                  className={`method-button ${joinMethod === 'code' ? 'active' : ''}`}
-                  onClick={() => setJoinMethod('code')}
-                >
-                  Join Code
-                </button>
-                <button 
-                  className={`method-button ${joinMethod === 'url' ? 'active' : ''}`}
-                  onClick={() => setJoinMethod('url')}
-                >
-                  Google Sheets URL
-                </button>
-              </div>
-
-              <input 
+              <input
                 type="text"
                 className="modal-input"
-                placeholder={
-                  joinMethod === 'code' ? 'Enter 6-character join code...' :
-                  'Paste Google Sheets URL here...'
-                }
+                placeholder="Enter 6-character join code..."
                 value={joinInput}
-                onChange={(e) => setJoinInput(e.target.value)}
+                onChange={(e) => setJoinInput(e.target.value.toUpperCase())}
                 disabled={isLoading}
-                maxLength={joinMethod === 'code' ? 6 : undefined}
-                style={joinMethod === 'code' ? {
-                  textTransform: 'uppercase',
-                  letterSpacing: '2px',
-                  fontWeight: 600
-                } : {}}
+                maxLength={6}
+                style={{ textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600 }}
               />
 
               {error && (
@@ -299,7 +194,7 @@ function JoinHostModal({ onClose, onPlaygroupCreated }) {
               />
 
               <div className="info-box">
-                <p>This will create a new Google Sheet in your Drive with the proper format for tracking Commander games.</p>
+                <p>This will create a new playgroup in the database. Share your join code with players so they can join.</p>
               </div>
 
               {error && (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { getDisplayName } from '../utils/deckNameUtils';
 import { filterValidGames } from '../utils/statsCalculations';
 import { loadPlaygroupData } from '../utils/firestoreHelpers';
@@ -13,18 +13,11 @@ function MyDeckPage({ currentPlaygroup, playerMapping }) {
   const navigate = useNavigate();
   const { deckName } = useParams();
   const decodedDeckName = decodeURIComponent(deckName);
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
   
   const [advancedStatsEnabled, setAdvancedStatsEnabled] = useState(false);
   const [commanderArt, setCommanderArt] = useState(null);
   const playerName = playerMapping;
-
-  // Debug logging
-  useEffect(() => {
-    console.log('MyDeckPage - Player Name:', playerName);
-    console.log('MyDeckPage - Deck Name:', decodedDeckName);
-    console.log('MyDeckPage - Total games:', games.length);
-  }, [playerName, decodedDeckName, games]);
 
   // Load advanced stats setting
   useEffect(() => {
@@ -76,73 +69,40 @@ function MyDeckPage({ currentPlaygroup, playerMapping }) {
     fetchArt();
   }, [decodedDeckName]);
 
-  // Filter out incomplete games first
-  const validGames = filterValidGames(games);
-
-  // Filter games where this player piloted this deck
-  const deckGames = validGames.filter(g => 
-    g.player === playerName && g.commander === decodedDeckName
+  // Filter to completed games where this player piloted this deck
+  const deckGames = filterValidGames(games).filter(g =>
+    g.players.some(p => p.player === playerName && p.commander === decodedDeckName)
   );
 
-  // Debug filtered games
-  useEffect(() => {
-    console.log('MyDeckPage - Filtered deck games:', deckGames.length);
-    if (deckGames.length > 0) {
-      console.log('Sample game:', deckGames[0]);
-    }
-  }, [deckGames]);
-
-  // Calculate record
-  const wins = deckGames.filter(g => g.isWin).length;
-  const losses = deckGames.filter(g => !g.isWin).length;
+  // Calculate record from the player's entry in each game
+  const wins = deckGames.filter(g => g.players.find(p => p.player === playerName)?.isWin).length;
+  const losses = deckGames.length - wins;
   const winRate = deckGames.length > 0 ? ((wins / deckGames.length) * 100).toFixed(1) : '0.0';
 
-  // Group by game session and sort by date (newest first)
-  const gameSessions = deckGames.reduce((acc, game) => {
-    if (!acc[game.gameId]) {
-      acc[game.gameId] = {
-        gameId: game.gameId,
-        date: game.date,
-        dateString: game.dateString,
-        players: [],
-        lastTurn: game.lastTurn,
-        winCondition: game.winCondition,
-        userWon: false
+  // Build sorted session list — players array is already on each game doc
+  const sortedSessions = [...deckGames]
+    .map(g => {
+      const me = g.players.find(p => p.player === playerName);
+      return {
+        gameId: g.gameId,
+        dateString: g.dateString || '',
+        players: g.players,
+        lastTurn: g.lastTurn,
+        winCondition: g.winCondition,
+        userWon: me?.isWin || false
       };
-    }
-    
-    // Check if user won this game
-    if (game.player === playerName && game.isWin) {
-      acc[game.gameId].userWon = true;
-    }
-    
-    return acc;
-  }, {});
+    })
+    .sort((a, b) => {
+      const parse = (s) => { const [m,d,y] = s.split('/').map(Number); return new Date(y,m-1,d).getTime(); };
+      return parse(b.dateString) - parse(a.dateString);
+    });
 
-  // Add all players for each game (not just the user)
-  Object.keys(gameSessions).forEach(gameId => {
-    const allPlayersInGame = validGames.filter(g => g.gameId === gameId);
-    gameSessions[gameId].players = allPlayersInGame.map(g => ({
-      player: g.player,
-      commander: g.commander,
-      colorId: g.colorId,
-      turnOrder: g.turnOrder,
-      result: g.result,
-      isWin: g.isWin,
-      bracket: g.bracket
-    }));
-  });
-
-  const sortedSessions = Object.values(gameSessions)
-    .sort((a, b) => b.date - a.date); // Newest first
-
-  // Format date as MM/DD/YY
-  const formatDate = (date) => {
-    if (!date) return '';
-    const m = parseInt(date.getMonth() + 1);
-    const d = parseInt(date.getDate());
-    const y = date.getFullYear().toString().slice(-2);
-    return `${m}/${d}/${y}`;
+  // Format MM/DD/YYYY → M/D/YY
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return dateStr;
+    return `${parseInt(parts[0])}/${parseInt(parts[1])}/${parts[2].slice(-2)}`;
   };
 
   // Extract game number from ID
@@ -304,7 +264,7 @@ function MyDeckPage({ currentPlaygroup, playerMapping }) {
                 }}
               >
                 <div className="game-id-header">
-                  {formatDate(session.date)} - Game {getGameNumber(session.gameId)}
+                  {formatDate(session.dateString)} - Game {getGameNumber(session.gameId)}
                 </div>
                 
                 <div className="players-list">

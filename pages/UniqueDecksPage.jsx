@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { getLastSession } from '../utils/statsCalculations';
 import { getDisplayName } from '../utils/deckNameUtils';
 import ColorMana from '../components/ColorMana';
@@ -10,7 +10,7 @@ import './UniqueDecksPage.css';
 
 function UniqueDecksPage() {
   const navigate = useNavigate();
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
   const [commanderArts, setCommanderArts] = useState({});
   
   const lastSessionGames = getLastSession(games);
@@ -20,99 +20,98 @@ function UniqueDecksPage() {
   const deckOrder = [];
   
   // Sort games by gameId and turn order to ensure proper appearance order
-  const sortedGames = [...lastSessionGames].sort((a, b) => {
-    if (a.gameId !== b.gameId) {
-      return a.gameId.localeCompare(b.gameId);
-    }
-    return (a.turnOrder || 999) - (b.turnOrder || 999);
-  });
+  // Games docs are already sorted by gameId; players within each doc are sorted by turnOrder
+  const sortedGames = [...lastSessionGames].sort((a, b) => a.gameId.localeCompare(b.gameId));
   
   sortedGames.forEach(game => {
-    const commander = game.commander;
-    if (!commander) return;
-    
-    if (!deckMap[commander]) {
-      deckMap[commander] = {
-        name: commander,
-        colors: game.colorId || [],
-        pilots: [],
-        firstAppearance: deckOrder.length
-      };
-      deckOrder.push(commander);
-    }
-    
-    // Add pilot if not already in list
-    if (!deckMap[commander].pilots.includes(game.player)) {
-      deckMap[commander].pilots.push(game.player);
-    }
+    game.players.forEach(p => {
+      const commander = p.commander;
+      if (!commander) return;
+
+      if (!deckMap[commander]) {
+        deckMap[commander] = {
+          name: commander,
+          colors: p.colorId || [],
+          pilots: [],
+          firstAppearance: deckOrder.length
+        };
+        deckOrder.push(commander);
+      }
+
+      if (!deckMap[commander].pilots.includes(p.player)) {
+        deckMap[commander].pilots.push(p.player);
+      }
+    });
   });
   
   // Get decks in order of first appearance
   const decks = deckOrder.map(name => deckMap[name]);
 
-  // Fetch commander art from Scryfall in batches
+  // Fetch commander art from Scryfall in batches.
+  // Batches of 3 with 400ms between batches keeps us well under Scryfall's
+  // 10 req/s limit (partners fire 2 requests per deck, so 3 decks = up to 6 req).
+  // We use a stable deck name key so the effect only re-runs when the actual
+  // deck list changes, not on every render.
+  const deckNamesKey = decks.map(d => d.name).join('|');
+
   useEffect(() => {
+    if (decks.length === 0) return;
+
+    let cancelled = false;
+    const BATCH_SIZE = 3;
+    const BATCH_DELAY_MS = 400;
+
     const fetchCommanderArts = async () => {
-      const BATCH_SIZE = 4;
-      const batches = [];
-      
-      // Split decks into batches of 4
       for (let i = 0; i < decks.length; i += BATCH_SIZE) {
-        batches.push(decks.slice(i, i + BATCH_SIZE));
-      }
-      
-      // Process each batch sequentially
-      for (const batch of batches) {
+        if (cancelled) break;
+
+        const batch = decks.slice(i, i + BATCH_SIZE);
         const batchArts = {};
-        
-        // Fetch all arts in this batch concurrently
+
         await Promise.all(
           batch.map(async (deck) => {
             try {
-              // Check if this is a partner/background combo (contains " // ")
-              const commanders = deck.name.split(' // ').map(name => name.trim());
-              
+              const commanders = deck.name.split(' // ').map(n => n.trim());
+
               if (commanders.length === 2) {
-                // Two commanders - fetch both arts
                 const [art1, art2] = await Promise.all([
                   scryfallService.getCommanderByName(commanders[0]),
-                  scryfallService.getCommanderByName(commanders[1])
+                  scryfallService.getCommanderByName(commanders[1]),
                 ]);
-                
                 batchArts[deck.name] = {
                   type: 'dual',
                   art1: scryfallService.getArtCrop(art1),
-                  art2: scryfallService.getArtCrop(art2)
+                  art2: scryfallService.getArtCrop(art2),
                 };
               } else {
-                // Single commander
                 const card = await scryfallService.getCommanderByName(deck.name);
                 batchArts[deck.name] = {
                   type: 'single',
-                  art: scryfallService.getArtCrop(card)
+                  art: scryfallService.getArtCrop(card),
                 };
               }
             } catch (error) {
               console.error(`Failed to fetch art for ${deck.name}:`, error);
-              // Don't set art for this commander - will show without image
             }
           })
         );
-        
-        // Update state with this batch's arts
-        setCommanderArts(prev => ({ ...prev, ...batchArts }));
-        
-        // Small delay before next batch (100ms to respect rate limits)
-        if (batches.indexOf(batch) < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (!cancelled) {
+          setCommanderArts(prev => ({ ...prev, ...batchArts }));
+        }
+
+        // Delay before next batch (skip delay after the last batch)
+        if (!cancelled && i + BATCH_SIZE < decks.length) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
         }
       }
     };
-    
-    if (decks.length > 0) {
-      fetchCommanderArts();
-    }
-  }, [decks.length]); // Only re-fetch if number of decks changes
+
+    fetchCommanderArts();
+
+    // Cleanup: if the component unmounts or deck list changes mid-fetch, stop
+    return () => { cancelled = true; };
+  }, [deckNamesKey]); // Re-run only when the actual deck names change
 
   return (
     <div className="blank-page">

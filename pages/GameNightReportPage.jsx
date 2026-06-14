@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { getGameSessions } from '../utils/statsCalculations';
 import { getDisplayName } from '../utils/deckNameUtils';
 import { loadPlaygroupData } from '../utils/firestoreHelpers';
@@ -11,7 +11,7 @@ import './GamesPlayedPage.css';
 function GameNightReportPage({ currentPlaygroup }) {
   const navigate = useNavigate();
   const { sessionId } = useParams(); // e.g., "001-A"
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
   const [advancedStatsEnabled, setAdvancedStatsEnabled] = useState(false);
   
   // Load advanced stats setting
@@ -41,17 +41,22 @@ function GameNightReportPage({ currentPlaygroup }) {
   
   const gameSessions = getGameSessions(sessionGames);
   
-  // Format session title
+  // Format MM/DD/YYYY to M/D/YY
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const year = date.getFullYear().toString().slice(-2);
-    return `${month}/${day}/${year}`;
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return dateStr;
+    return `${parseInt(parts[0])}/${parseInt(parts[1])}/${parts[2].slice(-2)}`;
   };
-  
-  // Normalize dates to YYYY-MM-DD format to avoid duplicates
-  const sessionDates = [...new Set(sessionGames.map(g => new Date(g.date).toISOString().split('T')[0]))].sort();
+
+  // Use dateString directly to avoid timezone shift issues
+  const parseDate = (str) => {
+    const [m, d, y] = str.split('/').map(Number);
+    return new Date(y, m - 1, d).getTime();
+  };
+
+  const sessionDates = [...new Set(sessionGames.map(g => g.dateString).filter(Boolean))]
+    .sort((a, b) => parseDate(a) - parseDate(b));
+
   const dateRange = sessionDates.length === 1
     ? formatDate(sessionDates[0])
     : `${formatDate(sessionDates[0])} - ${formatDate(sessionDates[sessionDates.length - 1])}`;

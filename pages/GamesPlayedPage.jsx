@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { getLastSession, getGameSessions } from '../utils/statsCalculations';
 import { getDisplayName } from '../utils/deckNameUtils';
 import { loadPlaygroupData } from '../utils/firestoreHelpers';
@@ -10,7 +10,7 @@ import './GamesPlayedPage.css';
 
 function GamesPlayedPage({ currentPlaygroup }) {
   const navigate = useNavigate();
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
   const [advancedStatsEnabled, setAdvancedStatsEnabled] = useState(false);
   
   // Load advanced stats setting

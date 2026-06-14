@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import googleAuthService from '../services/firebaseAuth';
+import { auth, googleProvider } from '../firebase';
+import { signInWithPopup } from 'firebase/auth';
 import './LoginPage.css';
 
 function LoginPage({ onLoginSuccess }) {
@@ -13,17 +14,12 @@ function LoginPage({ onLoginSuccess }) {
     setError(null);
 
     try {
-      const result = await googleAuthService.signIn();
-      
-      // Store user info in localStorage
-      localStorage.setItem('userInfo', JSON.stringify(result.userInfo));
-      
-      // Call parent callback
+      const result = await signInWithPopup(auth, googleProvider);
+
       if (onLoginSuccess) {
         onLoginSuccess(result);
       }
 
-      // Navigate to homepage
       navigate('/');
     } catch (err) {
       console.error('Login error:', err);
@@ -102,7 +98,7 @@ function LoginPage({ onLoginSuccess }) {
 
         <div className="login-footer">
           <p className="login-footer-text">
-            By signing in, you agree to allow Commander Tracker to access your Google Sheets
+            By signing in, you agree to allow Commander Tracker to access your Google account
           </p>
         </div>
       </div>

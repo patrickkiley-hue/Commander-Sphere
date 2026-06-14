@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { loadPlaygroupData } from '../utils/firestoreHelpers';
-import { generateNextGameId } from '../utils/firestoreHelpers';
-import firebaseAuthService from '../services/firebaseAuth';
+import { saveCompletedGame, startLiveGame, deleteGame, generateNextGameId } from '../services/gameService';
 import scryfallService from '../services/scryfallService';
 import ColorMana from '../components/ColorMana';
 import './BlankPage.css';
@@ -11,7 +10,7 @@ import './TrackGamePage.css';
 
 function TrackGamePage({ currentPlaygroup }) {
   const navigate = useNavigate();
-  const { games } = useSheetData();
+  const { rawDocs: games } = useSheetData();
   
   // Prevent double-trigger of continue game popup
   const hasCheckedExistingGame = useRef(false);
@@ -68,9 +67,11 @@ function TrackGamePage({ currentPlaygroup }) {
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   
-  // Get unique player names from games
+  // Get unique player names from game documents
   const playerNames = React.useMemo(() => {
-    return [...new Set(games.map(g => g.player).filter(p => p))].sort();
+    return [...new Set(
+      games.flatMap(g => (g.players || []).map(p => p.player)).filter(p => p)
+    )].sort();
   }, [games]);
 
   // Load playgroup settings on mount
@@ -360,8 +361,8 @@ function TrackGamePage({ currentPlaygroup }) {
   // Handle discarding existing game
   const handleDiscardGame = async () => {
     setShowContinueGamePopup(false);
-    hasCheckedExistingGame.current = false; // Reset for next visit
-    
+    hasCheckedExistingGame.current = false;
+
     if (!existingGameData) {
       console.error('No existing game data found');
       setIsLoading(false);
@@ -369,30 +370,15 @@ function TrackGamePage({ currentPlaygroup }) {
     }
 
     try {
-      // Delete rows from Google Sheets
-      console.log('Deleting game rows from Google Sheets...');
-      const result = await firebaseAuthService.deleteGameRows(
-        existingGameData.spreadsheetId,
-        existingGameData.gameId
-      );
-      console.log(`Deleted ${result.deletedCount} rows from Google Sheets`);
-      
-      // Delete Firestore tracking
-      const { deleteLiveGameTracking } = await import('../utils/firestoreHelpers');
-      await deleteLiveGameTracking(
-        existingGameData.spreadsheetId,
-        existingGameData.gameId
-      );
-      
-      // Clear localStorage
+      // Delete the in-progress game document from Firestore
+      await deleteGame(existingGameData.spreadsheetId, existingGameData.gameId);
       localStorage.removeItem('liveTrackGame');
-      
       console.log('Game discarded successfully');
     } catch (error) {
       console.error('Error discarding game:', error);
       showAlert('Error', 'Failed to discard game: ' + error.message);
     }
-    
+
     setIsLoading(false);
   };
 
@@ -432,9 +418,27 @@ function TrackGamePage({ currentPlaygroup }) {
     );
   };
 
+  // Compute the session date string (MM/DD/YYYY) with 7am cutoff.
+  // Games submitted before 7am local time are attributed to the previous calendar day.
+  const getSessionDateString = (dateInputValue) => {
+    const now = new Date();
+    const [year, month, day] = dateInputValue.split('-').map(Number);
+    const selectedDate = new Date(year, month - 1, day);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Only apply the cutoff if the user selected today's date
+    if (selectedDate.getTime() === today.getTime() && now.getHours() < 7) {
+      const prev = new Date(today);
+      prev.setDate(prev.getDate() - 1);
+      return `${prev.getMonth() + 1}/${prev.getDate()}/${prev.getFullYear()}`;
+    }
+
+    return `${month}/${day}/${year}`;
+  };
+
   const handleSubmitGame = async () => {
     const validation = validateForm();
-    
+
     if (!validation.valid) {
       showAlert('WHOOPS!', validation.message);
       return;
@@ -446,36 +450,16 @@ function TrackGamePage({ currentPlaygroup }) {
     }
 
     try {
-      // Generate game ID
-      // Parse date string as local date (not UTC)
-      const [year, month, day] = gameDate.split('-').map(Number);
-      const localDate = new Date(year, month - 1, day); // month is 0-indexed
-      const dateString = localDate.toLocaleDateString('en-US');
-      const gameId = await generateNextGameId(currentPlaygroup.spreadsheetId, dateString);
+      const sessionDateString = getSessionDateString(gameDate);
+      const gameId = await generateNextGameId(currentPlaygroup.spreadsheetId, sessionDateString);
 
-      // Submit each player's data
-      for (let i = 0; i < playerCount; i++) {
-        const player = players[i];
-        
-        // Format commander name - combine with partner if exists
-        let commanderName = player.commander;
-        if (player.partnerCommander) {
-          commanderName = `${player.commander} // ${player.partnerCommander}`;
-        }
-        
-        await firebaseAuthService.appendGameToSheet(currentPlaygroup.spreadsheetId, {
-          date: localDate, // Use the local date object
-          gameId: gameId,
-          player: player.player,
-          commander: commanderName,
-          colorId: player.colorId,
-          turnOrder: i + 1,
-          result: player.isWinner ? 'Win' : 'Loss',
-          lastTurn: player.isWinner && player.lastTurn ? parseInt(player.lastTurn) : null,
-          winCondition: player.isWinner && player.winCondition ? player.winCondition : '',
-          bracket: player.bracket || ''
-        });
-      }
+      await saveCompletedGame(
+        currentPlaygroup.spreadsheetId,
+        gameId,
+        sessionDateString,
+        players.slice(0, playerCount),
+        advancedStatsEnabled
+      );
 
       showAlert('Success', 'Game submitted successfully!');
       setTimeout(() => navigate('/'), 1000);
@@ -487,7 +471,7 @@ function TrackGamePage({ currentPlaygroup }) {
 
   const handleLiveTrack = async () => {
     const validation = validateForm();
-    
+
     if (!validation.valid) {
       showAlert('WHOOPS!', validation.message);
       return;
@@ -499,61 +483,37 @@ function TrackGamePage({ currentPlaygroup }) {
     }
 
     try {
-      // Generate game ID
-      // Parse date string as local date (not UTC)
-      const [year, month, day] = gameDate.split('-').map(Number);
-      const localDate = new Date(year, month - 1, day); // month is 0-indexed
-      const dateString = localDate.toLocaleDateString('en-US');
-      const gameId = await generateNextGameId(currentPlaygroup.spreadsheetId, dateString);
+      const sessionDateString = getSessionDateString(gameDate);
+      const gameId = await generateNextGameId(currentPlaygroup.spreadsheetId, sessionDateString);
 
-      // Start live game for each player
-      const playerRows = [];
-      for (let i = 0; i < playerCount; i++) {
-        const player = players[i];
-        
-        // Format commander name - combine with partner if exists
-        let commanderName = player.commander;
-        if (player.partnerCommander) {
-          commanderName = `${player.commander} // ${player.partnerCommander}`;
-        }
-        
-        const result = await firebaseAuthService.startLiveGame(currentPlaygroup.spreadsheetId, {
-          date: localDate, // Use the local date object
-          gameId: gameId,
-          player: player.player,
-          commander: commanderName,
-          colorId: player.colorId,
-          turnOrder: i + 1,
-          bracket: player.bracket || ''
-        });
-
-        playerRows.push({
-          player: player.player,
-          commander: commanderName,
-          rowNumber: result.rowNumber
-        });
-      }
-
-      // Track in Firestore
-      const { startLiveGameTracking } = await import('../utils/firestoreHelpers');
-      await startLiveGameTracking(
+      // Write the in-progress game document to Firestore
+      await startLiveGame(
         currentPlaygroup.spreadsheetId,
         gameId,
-        playerRows[0].rowNumber,
-        playerRows
+        sessionDateString,
+        players.slice(0, playerCount),
+        advancedStatsEnabled
       );
 
-      // Save game data to localStorage for LiveTrackPage
+      // Save minimal game data to localStorage for LiveTrackPage
+      // No rowNumbers needed — LiveTrackPage now uses gameId to find the Firestore doc
       const gameDataForTracking = {
         gameId,
         spreadsheetId: currentPlaygroup.spreadsheetId,
-        date: new Date(gameDate).toISOString(),
-        playerRows,
-        advancedStatsEnabled: advancedStatsEnabled
+        sessionDateString,
+        players: players.slice(0, playerCount).map((p, i) => ({
+          player: p.player,
+          commander: p.partnerCommander
+            ? `${p.commander} // ${p.partnerCommander}`
+            : p.commander,
+          colorId: p.colorId,
+          turnOrder: i + 1,
+          bracket: p.bracket || null
+        })),
+        advancedStatsEnabled
       };
       localStorage.setItem('liveTrackGame', JSON.stringify(gameDataForTracking));
 
-      // Navigate to LiveTrackPage
       navigate('/live-track');
     } catch (error) {
       console.error('Error starting live tracking:', error);

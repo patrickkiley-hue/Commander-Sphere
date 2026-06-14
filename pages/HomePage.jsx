@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import {
   getPlayers,
   getTopPlayers,
@@ -13,7 +13,6 @@ import {
   countUniqueCommanders,
 } from '../utils/statsCalculations';
 import { loadPlaygroupsFromFirestore, loadPlaygroupData } from '../utils/firestoreHelpers';
-import firebaseAuthService from '../services/firebaseAuth';
 import { getDisplayName } from '../utils/deckNameUtils';
 import ColorMana from '../components/ColorMana';
 import SwitchPlaygroupModal from '../components/SwitchPlaygroupModal';
@@ -27,8 +26,8 @@ function HomePage({ currentPlaygroup, setCurrentPlaygroup, joinedPlaygroups, set
   const [unmappedCount, setUnmappedCount] = useState(0);
   const [hasAttemptedRefresh, setHasAttemptedRefresh] = useState(false);
   
-  // Get sheet data from Context
-  const { games, isLoading, error, refreshSession } = useSheetData();
+  // Get game documents from Context — rawDocs are native Firestore game documents
+  const { rawDocs: games, isLoading, error, refreshSession } = useSheetData();
   
   // Automatically refresh session when error is detected
   useEffect(() => {
@@ -92,26 +91,16 @@ function HomePage({ currentPlaygroup, setCurrentPlaygroup, joinedPlaygroups, set
     );
   }
   
-  // Calculate stats from real data
-  const totalGames = games.length;
+  // Calculate stats from game documents
+  const totalGames = countUniqueGames(games);
   const players = getPlayers(games);
   const totalPlayers = players.length;
-  
-  // Get last session games (most recent date + consecutive prior date if applicable)
+
+  // Get last session game documents
   const lastSessionGames = getLastSession(games);
-  
-  // DEBUG: Log to see what we're working with
-  console.log('Last session games:', lastSessionGames.length);
-  console.log('Sample game objects:', lastSessionGames.slice(0, 3));
-  console.log('Unique gameIds:', [...new Set(lastSessionGames.map(g => g.gameId))]);
-  console.log('Unique commanders:', [...new Set(lastSessionGames.map(g => g.commander))]);
-  
-  const gamesLastSession = countUniqueGames(lastSessionGames);  // Count unique gameIds
-  const uniqueCommandersCount = countUniqueCommanders(lastSessionGames);  // Count unique commanders
-  
-  console.log('Games count:', gamesLastSession);
-  console.log('Commanders count:', uniqueCommandersCount);
-  
+  const gamesLastSession = countUniqueGames(lastSessionGames);
+  const uniqueCommandersCount = countUniqueCommanders(lastSessionGames);
+
   // Get top performers from last session (min 1 game)
   const topPerformers = getTopPlayers(lastSessionGames, 1).slice(0, 3);
   

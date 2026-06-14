@@ -1,52 +1,62 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
+import { filterValidGames } from '../utils/statsCalculations';
 import './BlankPage.css';
 import './PodHistoryPage.css';
 
 function PodHistoryPage({ currentPlaygroup }) {
   const navigate = useNavigate();
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
 
-  // Group games by session (prefix-letter, e.g., "001-A", "001-B")
+  // Group game documents by session (prefix-letter, e.g., "001-A", "001-B")
   const getSessionData = () => {
     const sessions = {};
-    
-    games.forEach(game => {
+
+    // Only count completed games (have a winner)
+    filterValidGames(games).forEach(game => {
       if (!game.gameId) return;
-      
-      // Extract session ID (e.g., "001-A01" -> "001-A")
+
       const parts = game.gameId.split('-');
       if (parts.length !== 2) return;
-      
+
       const sessionId = `${parts[0]}-${parts[1].charAt(0)}`; // e.g., "001-A"
-      
-      // Normalize date to YYYY-MM-DD format
-      const normalizedDate = new Date(game.date).toISOString().split('T')[0];
-      
+
+      // Use dateString (MM/DD/YYYY) to avoid timezone shift issues
+      const dateStr = game.dateString || '';
+
       if (!sessions[sessionId]) {
         sessions[sessionId] = {
           sessionId,
-          games: [],
+          gameCount: 0,
           dates: new Set(),
           players: new Set(),
           commanders: new Set()
         };
       }
-      
-      sessions[sessionId].games.push(game);
-      sessions[sessionId].dates.add(normalizedDate);
-      sessions[sessionId].players.add(game.player);
-      sessions[sessionId].commanders.add(game.commander);
+
+      sessions[sessionId].gameCount++;
+      if (dateStr) sessions[sessionId].dates.add(dateStr);
+
+      // Players and commanders come from game.players array
+      (game.players || []).forEach(p => {
+        if (p.player) sessions[sessionId].players.add(p.player);
+        if (p.commander) sessions[sessionId].commanders.add(p.commander);
+      });
     });
-    
-    // Convert to array and sort by date (most recent first)
+
+    // Parse MM/DD/YYYY for sorting
+    const parseDate = (str) => {
+      const [m, d, y] = str.split('/').map(Number);
+      return new Date(y, m - 1, d).getTime();
+    };
+
     return Object.values(sessions)
       .map(session => ({
         ...session,
-        dates: Array.from(session.dates).sort(),
-        minDate: Math.min(...Array.from(session.dates).map(d => new Date(d).getTime())),
-        uniqueGameIds: new Set(session.games.map(g => g.gameId)).size,
+        dates: Array.from(session.dates).sort((a, b) => parseDate(a) - parseDate(b)),
+        minDate: Math.min(...Array.from(session.dates).map(parseDate)),
+        uniqueGameIds: session.gameCount,
         uniquePlayers: session.players.size,
         uniqueCommanders: session.commanders.size
       }))
@@ -54,11 +64,10 @@ function PodHistoryPage({ currentPlaygroup }) {
   };
 
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const year = date.getFullYear().toString().slice(-2);
-    return `${month}/${day}/${year}`;
+    // dateStr is already MM/DD/YYYY — just trim the year to 2 digits
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return dateStr;
+    return `${parts[0]}/${parts[1]}/${parts[2].slice(-2)}`;
   };
 
   const sessions = getSessionData();

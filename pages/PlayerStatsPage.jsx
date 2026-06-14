@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { loadPlaygroupData, checkAndRollSeason } from '../utils/firestoreHelpers';
 import { getDisplayName } from '../utils/deckNameUtils';
 import scryfallService from '../services/scryfallService';
@@ -12,7 +12,7 @@ function PlayerStatsPage({ currentPlaygroup }) {
   const navigate = useNavigate();
   const { playerName } = useParams();
   const decodedPlayerName = decodeURIComponent(playerName);
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
   
   // Initialize from sessionStorage, default to true (season) if not set
   const [showSeasonStats, setShowSeasonStats] = useState(() => {
@@ -59,65 +59,66 @@ function PlayerStatsPage({ currentPlaygroup }) {
     if (!seasonData?.enabled || !showSeasonStats) {
       return games;
     }
-
-    // Simple calendar-based filtering
     if (seasonData.startDate) {
-      return games.filter(g => g.date >= seasonData.startDate);
+      const startISO = seasonData.startDate.toISOString();
+      return games.filter(g => g.date && g.date >= startISO);
     }
-    
     return games;
   };
 
   const filteredGames = getFilteredGames();
-  const playerGames = filteredGames.filter(g => g.player === decodedPlayerName);
+
+  // Games where this player participated, and this player's entry within each game
+  const playerGames = filteredGames
+    .filter(g => g.players.some(p => p.player === decodedPlayerName))
+    .map(g => ({
+      game: g,
+      player: g.players.find(p => p.player === decodedPlayerName)
+    }));
 
   // Calculate header stats
   const totalGames = playerGames.length;
-  const totalWins = playerGames.filter(g => g.isWin).length;
+  const totalWins = playerGames.filter(({ player: p }) => p.isWin).length;
   const winRate = totalGames > 0 ? (totalWins / totalGames) * 100 : 0;
 
   // Get standout decks
   const getStandoutDecks = () => {
     const deckStats = {};
-    
-    playerGames.forEach(game => {
-      const deck = game.commander;
+
+    playerGames.forEach(({ game, player: p }) => {
+      const deck = p.commander;
       if (!deck) return;
-      
+
       if (!deckStats[deck]) {
         deckStats[deck] = {
           name: deck,
-          colors: game.colorId || [],
+          colors: p.colorId || [],
           games: 0,
           wins: 0,
           sessions: new Set(),
           recentSessions: new Set(),
           firstGameId: game.gameId,
-          firstDate: game.date,
+          firstDate: game.date ? new Date(game.date) : null,
           gameIds: []
         };
       }
-      
+
       deckStats[deck].games++;
-      if (game.isWin) deckStats[deck].wins++;
+      if (p.isWin) deckStats[deck].wins++;
       deckStats[deck].gameIds.push(game.gameId);
-      
-      // Track unique sessions (001-A, 001-B, etc.) - first 5 characters of game ID
-      const session = game.gameId?.substring(0, 5); // "001-A", "001-B", etc.
+
+      const session = game.gameId?.substring(0, 5);
       if (session) deckStats[deck].sessions.add(session);
     });
 
     // Get last 3 sessions for recent activity tracking
-    const allSessions = [...new Set(playerGames.map(g => g.gameId?.substring(0, 5)).filter(Boolean))].sort().reverse();
+    const allSessions = [...new Set(playerGames.map(({ game }) => game.gameId?.substring(0, 5)).filter(Boolean))].sort().reverse();
     const last3Sessions = allSessions.slice(0, 3);
-    
-    // Count recent session appearances
+
     Object.values(deckStats).forEach(deck => {
       deck.gameIds.forEach(gameId => {
         const session = gameId?.substring(0, 5);
-        if (last3Sessions.includes(session)) {
-          deck.recentSessions.add(session);
-        }
+        if (last3Sessions.includes(session)) deck.recentSessions.add(session);
       });
     });
 
@@ -224,16 +225,13 @@ function PlayerStatsPage({ currentPlaygroup }) {
   // Calculate turn order stats
   const getTurnOrderStats = () => {
     const stats = {};
-    
-    playerGames.forEach(game => {
-      const pos = game.turnOrder;
+
+    playerGames.forEach(({ player: p }) => {
+      const pos = p.turnOrder;
       if (!pos) return;
-      
-      if (!stats[pos]) {
-        stats[pos] = { games: 0, wins: 0 };
-      }
+      if (!stats[pos]) stats[pos] = { games: 0, wins: 0 };
       stats[pos].games++;
-      if (game.isWin) stats[pos].wins++;
+      if (p.isWin) stats[pos].wins++;
     });
     
     return Object.entries(stats)
@@ -285,17 +283,13 @@ function PlayerStatsPage({ currentPlaygroup }) {
 
     const stats = {};
     
-    playerGames.forEach(game => {
-      let gameColors = game.colorId || [];
-      if (typeof gameColors === 'string') gameColors = gameColors.split('');
-      if (gameColors.length === 0) gameColors = ['C'];
-      
-      const key = [...gameColors].sort().join('');
-      if (!stats[key]) {
-        stats[key] = { games: 0, wins: 0 };
-      }
+    playerGames.forEach(({ player: p }) => {
+      let colors = Array.isArray(p.colorId) ? p.colorId : [];
+      if (colors.length === 0) colors = ['C'];
+      const key = [...colors].sort().join('');
+      if (!stats[key]) stats[key] = { games: 0, wins: 0 };
       stats[key].games++;
-      if (game.isWin) stats[key].wins++;
+      if (p.isWin) stats[key].wins++;
     });
 
     return identities
@@ -313,43 +307,30 @@ function PlayerStatsPage({ currentPlaygroup }) {
   };
 
   // Calculate pod composition stats
+  // Opponents are simply the other players inside each game document
   const getPodCompositionStats = () => {
     const opponentStats = {};
-    
-    // Get all unique game IDs the player participated in
-    const playerGameIds = new Set(playerGames.map(g => g.gameId));
-    
-    // Find all opponents in those games
-    filteredGames.forEach(game => {
-      if (playerGameIds.has(game.gameId) && game.player !== decodedPlayerName) {
-        if (!opponentStats[game.player]) {
-          opponentStats[game.player] = {
-            name: game.player,
-            games: new Set(),
-            playerWins: 0,
-            opponentWins: 0
-          };
-        }
-        
-        opponentStats[game.player].games.add(game.gameId);
-        
-        // Check if player won this game
-        const playerWon = playerGames.find(g => g.gameId === game.gameId && g.isWin);
-        if (playerWon) {
-          opponentStats[game.player].playerWins++;
-        } else if (game.isWin) {
-          opponentStats[game.player].opponentWins++;
-        }
-      }
+
+    playerGames.forEach(({ game, player: me }) => {
+      game.players
+        .filter(p => p.player !== decodedPlayerName)
+        .forEach(opp => {
+          if (!opp.player) return;
+          if (!opponentStats[opp.player]) {
+            opponentStats[opp.player] = { name: opp.player, games: 0, playerWins: 0 };
+          }
+          opponentStats[opp.player].games++;
+          if (me.isWin) opponentStats[opp.player].playerWins++;
+        });
     });
 
     return Object.values(opponentStats)
       .map(opp => ({
         name: opp.name,
         wins: opp.playerWins,
-        losses: opp.games.size - opp.playerWins,
-        games: opp.games.size,
-        winRate: opp.games.size > 0 ? (opp.playerWins / opp.games.size) * 100 : 0
+        losses: opp.games - opp.playerWins,
+        games: opp.games,
+        winRate: opp.games > 0 ? (opp.playerWins / opp.games) * 100 : 0
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   };

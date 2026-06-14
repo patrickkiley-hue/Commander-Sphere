@@ -1,32 +1,33 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { getLastSession } from '../utils/statsCalculations';
 import './BlankPage.css';
 import './TotalPlayersPage.css';
 
 function TotalPlayersPage() {
   const navigate = useNavigate();
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
   
   const lastSessionGames = getLastSession(games);
   
   // Calculate player stats
   const playerStats = {};
   lastSessionGames.forEach(game => {
-    const player = game.player;
-    if (!playerStats[player]) {
-      playerStats[player] = {
-        name: player,
-        games: 0,
-        wins: 0,
-        decks: new Set()
-      };
-    }
-    
-    playerStats[player].games++;
-    if (game.isWin) playerStats[player].wins++;
-    if (game.commander) playerStats[player].decks.add(game.commander);
+    game.players.forEach(p => {
+      if (!p.player) return;
+      if (!playerStats[p.player]) {
+        playerStats[p.player] = {
+          name: p.player,
+          games: 0,
+          wins: 0,
+          decks: new Set()
+        };
+      }
+      playerStats[p.player].games++;
+      if (p.isWin) playerStats[p.player].wins++;
+      if (p.commander) playerStats[p.player].decks.add(p.commander);
+    });
   });
   
   // Convert to array and sort: by games (desc), then alphabetically

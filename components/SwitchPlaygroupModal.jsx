@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
-import firebaseAuthService from '../services/firebaseAuth';
 import { saveAllPlaygroupData, addMemberToPlaygroup, initializePlaygroup } from '../utils/firestoreHelpers';
 import './SwitchPlaygroupModal.css';
 
@@ -45,7 +44,7 @@ function SwitchPlaygroupModal({
 
   const handleJoin = async () => {
     if (!joinInput.trim()) {
-      setError('Please enter the required information');
+      setError('Please enter a join code');
       return;
     }
 
@@ -53,77 +52,41 @@ function SwitchPlaygroupModal({
     setError(null);
 
     try {
-      let spreadsheetId = null;
-      let playgroupInfo = null;
+      const { findPlaygroupByJoinCode } = await import('../utils/firestoreHelpers');
+      const playgroup = await findPlaygroupByJoinCode(joinInput.trim());
 
-      if (joinMethod === 'url') {
-        // Extract spreadsheet ID from URL
-        spreadsheetId = firebaseAuthService.extractSpreadsheetId(joinInput);
-        
-        if (!spreadsheetId) {
-          setError('Invalid Google Sheets URL');
-          setIsLoading(false);
-          return;
-        }
-
-        // Try to fetch sheet data to verify access
-        try {
-          await firebaseAuthService.getSheetData(spreadsheetId, 'Games!A1:A1');
-          
-          // Get the actual sheet title
-          const metadata = await firebaseAuthService.getSpreadsheetMetadata(spreadsheetId);
-          let sheetTitle = metadata.properties.title;
-          
-          // Remove " - Commander Tracker" suffix if present
-          if (sheetTitle.endsWith(' - Commander Tracker')) {
-            sheetTitle = sheetTitle.replace(' - Commander Tracker', '');
-          }
-          
-          // Create playgroup object
-          playgroupInfo = {
-            name: sheetTitle,
-            spreadsheetId: spreadsheetId,
-            spreadsheetUrl: joinInput,
-            role: 'member',
-            joinedAt: new Date().toISOString()
-          };
-        } catch (err) {
-          setError('Unable to access this sheet. Please check that you have permission.');
-          setIsLoading(false);
-          return;
-        }
-      } else {
-        setError(`Join requests via ${joinMethod} will be available when admin notifications are implemented. Please use Google Sheets URL for now.`);
+      if (!playgroup) {
+        setError('Invalid join code. Please check and try again.');
         setIsLoading(false);
         return;
       }
 
-      // Check if already joined
-      const alreadyJoined = joinedPlaygroups.some(pg => pg.spreadsheetId === spreadsheetId);
-      if (alreadyJoined) {
+      const { spreadsheetId } = playgroup;
+
+      if (joinedPlaygroups.some(pg => pg.spreadsheetId === spreadsheetId)) {
         setError('You have already joined this playgroup');
         setIsLoading(false);
         return;
       }
 
-      // Add to joined playgroups
+      const playgroupInfo = {
+        name: playgroup.name,
+        spreadsheetId,
+        role: 'member',
+        joinedAt: new Date().toISOString()
+      };
+
       const updatedPlaygroups = [...joinedPlaygroups, playgroupInfo];
       setJoinedPlaygroups(updatedPlaygroups);
-      
-      // Save to Firestore
+
       const user = auth.currentUser;
       if (user) {
-        // Add user to playgroup members
         await addMemberToPlaygroup(spreadsheetId, user.uid);
-        
         await saveAllPlaygroupData(user.uid, currentPlaygroup, updatedPlaygroups);
       }
-      
-      // Also save to localStorage as backup
-      localStorage.setItem('joinedPlaygroups', JSON.stringify(updatedPlaygroups));
 
+      localStorage.setItem('joinedPlaygroups', JSON.stringify(updatedPlaygroups));
       setJoinInput('');
-      setError(null);
       setIsLoading(false);
       alert('Successfully joined playgroup!');
       onClose();
@@ -144,57 +107,33 @@ function SwitchPlaygroupModal({
     setError(null);
 
     try {
-      console.log('Creating sheet with name:', `${playgroupName} - Commander Tracker`);
-      
-      // Create the Google Sheet with proper template
-      const sheet = await firebaseAuthService.createSheet(`${playgroupName} - Commander Tracker`);
-      
-      console.log('Sheet created:', sheet);
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not signed in');
 
-      // Create playgroup object
+      const playgroupId = `pg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      await initializePlaygroup(playgroupId, playgroupName, user.uid);
+
       const playgroupInfo = {
         name: playgroupName,
-        spreadsheetId: sheet.spreadsheetId,
-        spreadsheetUrl: sheet.spreadsheetUrl,
+        spreadsheetId: playgroupId,
         role: 'admin',
         createdAt: new Date().toISOString()
       };
 
-      console.log('Playgroup info:', playgroupInfo);
-
-      // Add to existing playgroups
       const updatedPlaygroups = [...joinedPlaygroups, playgroupInfo];
       setJoinedPlaygroups(updatedPlaygroups);
-      
-      // Save to Firestore
-      const user = auth.currentUser;
-      if (user) {
-        // Initialize playgroup document
-        await initializePlaygroup(
-          sheet.spreadsheetId,
-          playgroupName,
-          user.uid
-        );
-        
-        await saveAllPlaygroupData(user.uid, playgroupInfo, updatedPlaygroups);
-      }
-      
-      // Also save to localStorage as backup
+
+      await saveAllPlaygroupData(user.uid, playgroupInfo, updatedPlaygroups);
+
       localStorage.setItem('joinedPlaygroups', JSON.stringify(updatedPlaygroups));
       localStorage.setItem('currentPlaygroup', JSON.stringify(playgroupInfo));
 
-      console.log('Saved to Firestore and localStorage');
-
-      // Switch to the new playgroup
       setCurrentPlaygroup(playgroupInfo);
-      
       setPlaygroupName('');
-      setError(null);
       setIsLoading(false);
       alert('Playgroup created successfully!');
       onClose();
-      
-      // Reload to show new playgroup data
       window.location.reload();
     } catch (err) {
       console.error('Host error:', err);
@@ -207,7 +146,7 @@ function SwitchPlaygroupModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Switch Playgroup</h2>
+          <h2>Playgroup Select</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
@@ -258,54 +197,22 @@ function SwitchPlaygroupModal({
             </div>
           ) : activeTab === 'join' ? (
             <div className="join-tab">
-              <div className="join-method-selector">
-                <button 
-                  className={`method-button ${joinMethod === 'phone' ? 'active' : ''}`}
-                  onClick={() => setJoinMethod('phone')}
-                >
-                  Phone Number
-                </button>
-                <button 
-                  className={`method-button ${joinMethod === 'discord' ? 'active' : ''}`}
-                  onClick={() => setJoinMethod('discord')}
-                >
-                  Discord
-                </button>
-                <button 
-                  className={`method-button ${joinMethod === 'email' ? 'active' : ''}`}
-                  onClick={() => setJoinMethod('email')}
-                >
-                  Email
-                </button>
-                <button 
-                  className={`method-button ${joinMethod === 'url' ? 'active' : ''}`}
-                  onClick={() => setJoinMethod('url')}
-                >
-                  Google Sheets URL
-                </button>
-              </div>
-
-              <input 
+              <input
                 type="text"
                 className="modal-input"
-                placeholder={
-                  joinMethod === 'phone' ? 'Enter admin phone number...' :
-                  joinMethod === 'discord' ? 'Enter admin Discord username...' :
-                  joinMethod === 'email' ? 'Enter admin email...' :
-                  'Paste Google Sheets URL here...'
-                }
+                placeholder="Enter 6-character join code..."
                 value={joinInput}
-                onChange={(e) => setJoinInput(e.target.value)}
+                onChange={(e) => setJoinInput(e.target.value.toUpperCase())}
                 disabled={isLoading}
+                maxLength={6}
+                style={{ textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600 }}
               />
 
               {error && (
-                <div className="error-message">
-                  {error}
-                </div>
+                <div className="error-message">{error}</div>
               )}
 
-              <button 
+              <button
                 className="modal-button primary"
                 onClick={handleJoin}
                 disabled={isLoading}
@@ -324,11 +231,7 @@ function SwitchPlaygroupModal({
                 disabled={isLoading}
               />
 
-              <div className="info-box">
-                <p>This will create a new Google Sheet in your Drive with the proper format for tracking Commander games.</p>
-              </div>
-
-              {error && (
+{error && (
                 <div className="error-message">{error}</div>
               )}
 
@@ -337,7 +240,7 @@ function SwitchPlaygroupModal({
                 onClick={handleHost}
                 disabled={isLoading}
               >
-                {isLoading ? 'Creating...' : 'Create Playgroup'}
+                {isLoading ? 'Creating...' : 'Create NEW Playgroup'}
               </button>
             </div>
           )}

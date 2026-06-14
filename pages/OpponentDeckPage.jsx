@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { getDisplayName } from '../utils/deckNameUtils';
 import { filterValidGames } from '../utils/statsCalculations';
 import { loadPlaygroupData } from '../utils/firestoreHelpers';
@@ -14,19 +14,11 @@ function OpponentDeckPage({ currentPlaygroup, playerMapping }) {
   const { pilotName, deckName } = useParams();
   const decodedPilotName = decodeURIComponent(pilotName);
   const decodedDeckName = decodeURIComponent(deckName);
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
   
   const [advancedStatsEnabled, setAdvancedStatsEnabled] = useState(false);
   const [commanderArt, setCommanderArt] = useState(null);
   const playerName = playerMapping;
-
-  // Debug logging
-  useEffect(() => {
-    console.log('OpponentDeckPage - Player Name:', playerName);
-    console.log('OpponentDeckPage - Pilot Name:', decodedPilotName);
-    console.log('OpponentDeckPage - Deck Name:', decodedDeckName);
-    console.log('OpponentDeckPage - Total games:', games.length);
-  }, [playerName, decodedPilotName, decodedDeckName, games]);
 
   // Load advanced stats setting
   useEffect(() => {
@@ -78,93 +70,42 @@ function OpponentDeckPage({ currentPlaygroup, playerMapping }) {
     fetchArt();
   }, [decodedDeckName]);
 
-  // Filter out incomplete games first
-  const validGames = filterValidGames(games);
-
-  // Find all games where the opponent piloted this deck
-  // First, get all games where opponent had this deck
-  const opponentDeckGames = validGames.filter(g => 
-    g.player === decodedPilotName && g.commander === decodedDeckName
+  // Games where the opponent piloted this deck AND the current user also played
+  const relevantGames = filterValidGames(games).filter(g =>
+    g.players.some(p => p.player === decodedPilotName && p.commander === decodedDeckName) &&
+    g.players.some(p => p.player === playerName)
   );
 
-  // Get the gameIds
-  const opponentGameIds = new Set(opponentDeckGames.map(g => g.gameId));
-
-  // Filter to only games where the current user also played
-  const relevantGames = validGames.filter(g => 
-    opponentGameIds.has(g.gameId) && g.player === playerName
-  );
-
-  // Calculate record (user's wins/losses against this deck)
-  const wins = relevantGames.filter(g => g.isWin).length;
-  const losses = relevantGames.filter(g => !g.isWin).length;
+  // Calculate record from user's entry in each game
+  const wins = relevantGames.filter(g => g.players.find(p => p.player === playerName)?.isWin).length;
+  const losses = relevantGames.length - wins;
   const winRate = relevantGames.length > 0 ? ((wins / relevantGames.length) * 100).toFixed(1) : '0.0';
 
-  // Debug filtered games
-  useEffect(() => {
-    console.log('OpponentDeckPage - Opponent deck games:', opponentDeckGames.length);
-    console.log('OpponentDeckPage - User relevant games:', relevantGames.length);
-    if (relevantGames.length > 0) {
-      console.log('Sample relevant game:', relevantGames[0]);
-    }
-  }, [opponentDeckGames, relevantGames]);
+  const parse = (s) => { if (!s) return 0; const [m,d,y] = s.split('/').map(Number); return new Date(y,m-1,d).getTime(); };
 
-  // Group by game session and sort by date (newest first)
-  const gameSessions = relevantGames.reduce((acc, game) => {
-    if (!acc[game.gameId]) {
-      // Find the opponent's data for this game
-      const opponentGame = opponentDeckGames.find(g => g.gameId === game.gameId);
-      
-      acc[game.gameId] = {
-        gameId: game.gameId,
-        date: game.date,
-        dateString: game.dateString,
-        players: [],
-        lastTurn: opponentGame?.lastTurn || game.lastTurn,
-        winCondition: opponentGame?.winCondition || game.winCondition,
-        userWon: false,
-        pilotWon: false
+  // Build sorted session list — players array already on each game doc
+  const sortedSessions = [...relevantGames]
+    .map(g => {
+      const me = g.players.find(p => p.player === playerName);
+      const pilot = g.players.find(p => p.player === decodedPilotName && p.commander === decodedDeckName);
+      return {
+        gameId: g.gameId,
+        dateString: g.dateString || '',
+        players: g.players,
+        lastTurn: g.lastTurn,
+        winCondition: g.winCondition,
+        userWon: me?.isWin || false,
+        pilotWon: pilot?.isWin || false
       };
-    }
-    
-    // Check if user won this game
-    if (game.player === playerName && game.isWin) {
-      acc[game.gameId].userWon = true;
-    }
-    
-    return acc;
-  }, {});
+    })
+    .sort((a, b) => parse(b.dateString) - parse(a.dateString));
 
-  // Add all players for each game
-  Object.keys(gameSessions).forEach(gameId => {
-    const allPlayersInGame = validGames.filter(g => g.gameId === gameId);
-    gameSessions[gameId].players = allPlayersInGame.map(g => ({
-      player: g.player,
-      commander: g.commander,
-      colorId: g.colorId,
-      turnOrder: g.turnOrder,
-      result: g.result,
-      isWin: g.isWin,
-      bracket: g.bracket
-    }));
-    
-    // Check if pilot won this game
-    const pilotWon = allPlayersInGame.some(g => 
-      g.player === decodedPilotName && g.commander === decodedDeckName && g.isWin
-    );
-    gameSessions[gameId].pilotWon = pilotWon;
-  });
-
-  const sortedSessions = Object.values(gameSessions)
-    .sort((a, b) => b.date - a.date); // Newest first
-
-  // Format date as MM/DD/YY
-  const formatDate = (date) => {
-    if (!date) return '';
-    const m = parseInt(date.getMonth() + 1);
-    const d = parseInt(date.getDate());
-    const y = date.getFullYear().toString().slice(-2);
-    return `${m}/${d}/${y}`;
+  // Format MM/DD/YYYY → M/D/YY
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return dateStr;
+    return `${parseInt(parts[0])}/${parseInt(parts[1])}/${parts[2].slice(-2)}`;
   };
 
   // Extract game number from ID
@@ -342,7 +283,7 @@ function OpponentDeckPage({ currentPlaygroup, playerMapping }) {
                 }}
               >
                 <div className="game-id-header">
-                  {formatDate(session.date)} - Game {getGameNumber(session.gameId)}
+                  {formatDate(session.dateString)} - Game {getGameNumber(session.gameId)}
                 </div>
                 
                 <div className="players-list">

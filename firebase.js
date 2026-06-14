@@ -19,10 +19,5 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Configure Google provider with Sheets and Drive scopes
+// Basic Google Sign-In — no extra scopes needed since game data is in Firestore
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/spreadsheets');
-googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
-
-// Don't set any custom parameters here - this allows Google to use cached consent
-// We'll set prompt parameters only when needed (e.g., during token refresh)

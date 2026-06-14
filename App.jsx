@@ -16,11 +16,12 @@ import TrackGamePage from './pages/TrackGamePage';
 import LiveTrackPage from './pages/LiveTrackPage';
 import AdministratorPage from './pages/AdministratorPage';
 import GamesPlayedPage from './pages/GamesPlayedPage';
+import ImportDataPage from './pages/ImportDataPage';
+import GameEditorPage from './pages/GameEditorPage';
 import GameNightReportPage from './pages/GameNightReportPage';
 import TotalPlayersPage from './pages/TotalPlayersPage';
 import UniqueDecksPage from './pages/UniqueDecksPage';
-import firebaseAuthService from './services/firebaseAuth';
-import { SheetDataProvider } from './context/SheetDataContext';
+import { SheetDataProvider } from './context/GameDataContext';
 import { 
   loadPlaygroupsFromFirestore, 
   saveAllPlaygroupData 
@@ -252,6 +253,14 @@ function App() {
           <Route 
             path="/unique-decks" 
             element={isAuthenticated ? <UniqueDecksPage /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/import-data" 
+            element={isAuthenticated ? <ImportDataPage currentPlaygroup={currentPlaygroup} currentUser={currentUser} /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/game-editor" 
+            element={isAuthenticated ? <GameEditorPage currentPlaygroup={currentPlaygroup} /> : <Navigate to="/login" />} 
           />
 
           {/* Catch all - redirect to home or login */}

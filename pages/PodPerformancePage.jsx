@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSheetData } from '../context/SheetDataContext';
+import { useSheetData } from '../context/GameDataContext';
 import { getDisplayName } from '../utils/deckNameUtils';
 import { filterValidGames } from '../utils/statsCalculations';
 import { loadPlaygroupData } from '../utils/firestoreHelpers';
@@ -13,7 +13,7 @@ function PodPerformancePage({ currentPlaygroup, playerMapping }) {
   const { opponent1, opponent2 } = useParams();
   const decodedOpponent1 = decodeURIComponent(opponent1);
   const decodedOpponent2 = decodeURIComponent(opponent2);
-  const { games, isLoading } = useSheetData();
+  const { rawDocs: games, isLoading } = useSheetData();
   
   const [advancedStatsEnabled, setAdvancedStatsEnabled] = useState(false);
   const [headerArt, setHeaderArt] = useState(null);
@@ -56,86 +56,48 @@ function PodPerformancePage({ currentPlaygroup, playerMapping }) {
     fetchArt();
   }, []);
 
-  // Filter out incomplete games first
-  const validGames = filterValidGames(games);
-
-  // Find games where user AND both opponents were present
-  const podGames = validGames.filter(g => g.player === playerName);
-  const podGameIds = new Set();
-
-  podGames.forEach(userGame => {
-    const gameId = userGame.gameId;
-    const playersInGame = validGames
-      .filter(g => g.gameId === gameId)
-      .map(g => g.player);
-    
-    // Check if both opponents were in this game
-    if (playersInGame.includes(decodedOpponent1) && playersInGame.includes(decodedOpponent2)) {
-      podGameIds.add(gameId);
-    }
+  // Games where user AND both opponents were all present
+  const relevantGames = filterValidGames(games).filter(g => {
+    const playerNames = g.players.map(p => p.player);
+    return (
+      playerNames.includes(playerName) &&
+      playerNames.includes(decodedOpponent1) &&
+      playerNames.includes(decodedOpponent2)
+    );
   });
 
-  // Get all rows for these games
-  const relevantGames = validGames.filter(g => podGameIds.has(g.gameId) && g.player === playerName);
-
-  // Calculate record (user's wins/losses in these pods)
-  const wins = relevantGames.filter(g => g.isWin).length;
-  const losses = relevantGames.filter(g => !g.isWin).length;
+  // Calculate record from user's entry in each game
+  const wins = relevantGames.filter(g => g.players.find(p => p.player === playerName)?.isWin).length;
+  const losses = relevantGames.length - wins;
   const winRate = relevantGames.length > 0 ? ((wins / relevantGames.length) * 100).toFixed(1) : '0.0';
 
-  // Group by game session and sort by date (newest first)
-  const gameSessions = relevantGames.reduce((acc, game) => {
-    if (!acc[game.gameId]) {
-      acc[game.gameId] = {
-        gameId: game.gameId,
-        date: game.date,
-        dateString: game.dateString,
-        players: [],
-        lastTurn: game.lastTurn,
-        winCondition: game.winCondition,
-        userWon: false,
-        opponentWon: false
+  const parse = (s) => { if (!s) return 0; const [m,d,y] = s.split('/').map(Number); return new Date(y,m-1,d).getTime(); };
+
+  // Build sorted session list — players array already on each game doc
+  const sortedSessions = [...relevantGames]
+    .map(g => {
+      const me = g.players.find(p => p.player === playerName);
+      const opponentWon = g.players.some(p =>
+        (p.player === decodedOpponent1 || p.player === decodedOpponent2) && p.isWin
+      );
+      return {
+        gameId: g.gameId,
+        dateString: g.dateString || '',
+        players: g.players,
+        lastTurn: g.lastTurn,
+        winCondition: g.winCondition,
+        userWon: me?.isWin || false,
+        opponentWon
       };
-    }
-    
-    // Check if user won this game
-    if (game.player === playerName && game.isWin) {
-      acc[game.gameId].userWon = true;
-    }
-    
-    return acc;
-  }, {});
+    })
+    .sort((a, b) => parse(b.dateString) - parse(a.dateString));
 
-  // Add all players for each game
-  Object.keys(gameSessions).forEach(gameId => {
-    const allPlayersInGame = validGames.filter(g => g.gameId === gameId);
-    gameSessions[gameId].players = allPlayersInGame.map(g => ({
-      player: g.player,
-      commander: g.commander,
-      colorId: g.colorId,
-      turnOrder: g.turnOrder,
-      result: g.result,
-      isWin: g.isWin,
-      bracket: g.bracket
-    }));
-    
-    // Check if either opponent won this game
-    const opponentWon = allPlayersInGame.some(g => 
-      (g.player === decodedOpponent1 || g.player === decodedOpponent2) && g.isWin
-    );
-    gameSessions[gameId].opponentWon = opponentWon;
-  });
-
-  const sortedSessions = Object.values(gameSessions)
-    .sort((a, b) => b.date - a.date); // Newest first
-
-  // Format date as MM/DD/YY
-  const formatDate = (date) => {
-    if (!date) return '';
-    const m = parseInt(date.getMonth() + 1);
-    const d = parseInt(date.getDate());
-    const y = date.getFullYear().toString().slice(-2);
-    return `${m}/${d}/${y}`;
+  // Format MM/DD/YYYY → M/D/YY
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return dateStr;
+    return `${parseInt(parts[0])}/${parseInt(parts[1])}/${parts[2].slice(-2)}`;
   };
 
   // Extract game number from ID
@@ -276,7 +238,7 @@ function PodPerformancePage({ currentPlaygroup, playerMapping }) {
                 }}
               >
                 <div className="game-id-header">
-                  {formatDate(session.date)} - Game {getGameNumber(session.gameId)}
+                  {formatDate(session.dateString)} - Game {getGameNumber(session.gameId)}
                 </div>
                 
                 <div className="players-list">

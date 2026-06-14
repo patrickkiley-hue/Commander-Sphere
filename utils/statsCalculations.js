@@ -1,542 +1,464 @@
-// Utility functions for calculating statistics from game data
+// src/utils/statsCalculations.js
+// Stat calculation utilities working natively with Firestore game documents.
+//
+// Data shape coming in:
+//   game = {
+//     gameId, date (ISO string), dateString (MM/DD/YYYY),
+//     winner, lastTurn, winCondition, bracket,
+//     players: [{ player, commander, colorId, turnOrder, result, isWin, lastTurn, winCondition, bracket }]
+//   }
+//
+// All functions accept arrays of game documents unless noted otherwise.
 
-// Filter out incomplete games (games with no winner)
-// This ensures stats only count completed games
-export const filterValidGames = (games) => {
-  // Group games by gameId
-  const gameGroups = games.reduce((acc, game) => {
-    if (!acc[game.gameId]) acc[game.gameId] = [];
-    acc[game.gameId].push(game);
-    return acc;
-  }, {});
-  
-  // Find gameIds that have at least one winner
-  const validGameIds = new Set(
-    Object.entries(gameGroups)
-      .filter(([gameId, rows]) => rows.some(row => row.result === 'Win'))
-      .map(([gameId]) => gameId)
-  );
-  
-  // Return only games that belong to valid gameIds
-  return games.filter(game => validGameIds.has(game.gameId));
+// ─── Core filter ─────────────────────────────────────────────────────────────
+
+/**
+ * Filter to completed games only (have a winner).
+ * Replaces the old grouping-by-gameId approach — now just a direct check.
+ */
+export const filterValidGames = (games) =>
+  games.filter(g => g.winner && Array.isArray(g.players) && g.players.length > 0);
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+
+const parseGameDate = (game) => {
+  if (!game.date) return null;
+  return game.date instanceof Date ? game.date : new Date(game.date);
 };
 
-// Get unique players from games
+// ─── Players ──────────────────────────────────────────────────────────────────
+
+/**
+ * Get sorted list of unique player names from a set of games.
+ */
 export const getPlayers = (games) => {
-  const validGames = filterValidGames(games);
-  const playerSet = new Set(validGames.map(game => game.player));
-  return Array.from(playerSet).sort();
+  const valid = filterValidGames(games);
+  const names = new Set();
+  valid.forEach(g => g.players.forEach(p => { if (p.player) names.add(p.player); }));
+  return Array.from(names).sort();
 };
 
-// Count unique games (by gameId)
-export const countUniqueGames = (games) => {
-  const validGames = filterValidGames(games);
-  const gameIds = new Set(validGames.map(game => game.gameId));
-  return gameIds.size;
-};
+// ─── Counts ───────────────────────────────────────────────────────────────────
 
-// Count unique commanders
+/** Count unique completed games. */
+export const countUniqueGames = (games) => filterValidGames(games).length;
+
+/** Count unique commanders across a set of games. */
 export const countUniqueCommanders = (games) => {
-  const validGames = filterValidGames(games);
-  const commanders = new Set(validGames.map(game => game.commander).filter(c => c));
+  const valid = filterValidGames(games);
+  const commanders = new Set();
+  valid.forEach(g => g.players.forEach(p => { if (p.commander) commanders.add(p.commander); }));
   return commanders.size;
 };
 
-// Get games for a specific player
-export const getPlayerGames = (games, playerName) => {
-  const validGames = filterValidGames(games);
-  return validGames.filter(game => game.player === playerName);
-};
+// ─── Session detection ────────────────────────────────────────────────────────
 
-// Calculate win rate for a player
-export const calculateWinRate = (games, playerName) => {
-  const playerGames = getPlayerGames(games, playerName);
-  if (playerGames.length === 0) return 0;
-  
-  const wins = playerGames.filter(game => game.isWin).length;
-  return (wins / playerGames.length) * 100;
-};
-
-// Get games from the last session (most recent date + consecutive prior date if applicable)
-// Updates at 7am EST daily
+/**
+ * Get games from the last session (most recent game date + consecutive prior
+ * date if applicable). Updates at 7am EST daily.
+ * Returns an array of game documents.
+ *
+ * Uses dateString (MM/DD/YYYY) for all comparisons to avoid timezone shift
+ * issues that occur when parsing ISO date strings into local time.
+ */
 export const getLastSession = (games) => {
-  const validGames = filterValidGames(games);
-  if (validGames.length === 0) return [];
-  
-  // Get current time in EST
+  const valid = filterValidGames(games);
+  if (valid.length === 0) return [];
+
+  // Current effective date in EST with 7am cutoff
   const now = new Date();
-  const estOffset = -5 * 60; // EST is UTC-5
+  const estOffset = -5 * 60;
   const estTime = new Date(now.getTime() + (estOffset + now.getTimezoneOffset()) * 60000);
-  
-  // If before 7am EST today, use yesterday as cutoff, otherwise use today
-  const cutoffHour = 7;
-  let effectiveDate = new Date(estTime);
-  if (estTime.getHours() < cutoffHour) {
-    effectiveDate.setDate(effectiveDate.getDate() - 1);
-  }
+  const effectiveDate = new Date(estTime);
+  if (estTime.getHours() < 7) effectiveDate.setDate(effectiveDate.getDate() - 1);
   effectiveDate.setHours(0, 0, 0, 0);
-  
-  // Get all unique dates from games, sorted newest first
-  const gameDates = [...new Set(validGames
-    .filter(g => g.date && g.date < effectiveDate)
-    .map(g => g.date.toDateString()))]
-    .map(dateStr => new Date(dateStr))
-    .sort((a, b) => b - a);
-  
-  if (gameDates.length === 0) return [];
-  
-  const mostRecentDate = gameDates[0];
-  const sessionDates = [mostRecentDate];
-  
-  // Check if there's a consecutive prior date
-  if (gameDates.length > 1) {
-    const priorDate = gameDates[1];
+
+  // Parse MM/DD/YYYY to a local midnight Date — no timezone shift
+  const parseDateString = (str) => {
+    if (!str) return null;
+    const [month, day, year] = str.split('/').map(Number);
+    if (!month || !day || !year) return null;
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  };
+
+  // Get unique dateStrings before the cutoff, sorted newest first
+  const uniqueDateStrings = [
+    ...new Set(
+      valid
+        .map(g => g.dateString)
+        .filter(ds => {
+          if (!ds) return false;
+          const d = parseDateString(ds);
+          return d && d < effectiveDate;
+        })
+    ),
+  ].sort((a, b) => parseDateString(b) - parseDateString(a));
+
+  if (uniqueDateStrings.length === 0) return [];
+
+  const mostRecentStr = uniqueDateStrings[0];
+  const sessionDateStrings = new Set([mostRecentStr]);
+
+  if (uniqueDateStrings.length > 1) {
+    const priorStr = uniqueDateStrings[1];
+    const mostRecentDate = parseDateString(mostRecentStr);
+    const priorDate = parseDateString(priorStr);
     const daysDiff = Math.floor((mostRecentDate - priorDate) / (1000 * 60 * 60 * 24));
-    
-    // If exactly 1 day apart, include it in the session
-    if (daysDiff === 1) {
-      sessionDates.push(priorDate);
-    }
+    if (daysDiff === 1) sessionDateStrings.add(priorStr);
   }
-  
-  // Return all games from session dates
-  return validGames.filter(game => {
-    if (!game.date) return false;
-    const gameDateStr = game.date.toDateString();
-    return sessionDates.some(d => d.toDateString() === gameDateStr);
+
+  return valid.filter(g => g.dateString && sessionDateStrings.has(g.dateString));
+};
+
+/**
+ * Get games from the last N days.
+ */
+export const getRecentGames = (games, days = 7) => {
+  const valid = filterValidGames(games);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return valid.filter(g => {
+    const d = parseGameDate(g);
+    return d && d >= cutoff;
   });
 };
 
-// Get games from the last N days (kept for other use cases)
-export const getRecentGames = (games, days = 7) => {
-  const validGames = filterValidGames(games);
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - days);
-  
-  return validGames.filter(game => game.date && game.date >= cutoffDate);
-};
+// ─── Top players ──────────────────────────────────────────────────────────────
 
-// Get top players by win rate (minimum games threshold)
+/**
+ * Get top players by win rate from a set of games.
+ * minGames = minimum games played to qualify.
+ */
 export const getTopPlayers = (games, minGames = 5) => {
-  const validGames = filterValidGames(games);
-  const players = getPlayers(validGames);
-  
-  return players
-    .map(player => {
-      const playerGames = getPlayerGames(validGames, player);
-      const wins = playerGames.filter(game => game.isWin).length;
-      const winRate = playerGames.length > 0 ? (wins / playerGames.length) * 100 : 0;
-      
-      return {
-        name: player,
-        games: playerGames.length,
-        wins,
-        winRate,
-      };
-    })
+  const valid = filterValidGames(games);
+  const stats = {};
+
+  valid.forEach(game => {
+    game.players.forEach(p => {
+      if (!p.player) return;
+      if (!stats[p.player]) stats[p.player] = { name: p.player, games: 0, wins: 0 };
+      stats[p.player].games++;
+      if (p.isWin) stats[p.player].wins++;
+    });
+  });
+
+  return Object.values(stats)
     .filter(p => p.games >= minGames)
+    .map(p => ({ ...p, winRate: (p.wins / p.games) * 100 }))
     .sort((a, b) => b.winRate - a.winRate);
 };
 
-// Get most played commanders
-export const getMostPlayedCommanders = (games, limit = 10) => {
-  const validGames = filterValidGames(games);
-  const commanderCounts = {};
-  
-  validGames.forEach(game => {
-    const commander = game.commander;
-    if (!commander) return;
-    
-    if (!commanderCounts[commander]) {
-      commanderCounts[commander] = {
-        name: commander,
-        games: 0,
-        wins: 0,
-        colors: game.colorId,
-      };
-    }
-    
-    commanderCounts[commander].games++;
-    if (game.isWin) commanderCounts[commander].wins++;
-  });
-  
-  return Object.values(commanderCounts)
-    .sort((a, b) => b.games - a.games)
-    .slice(0, limit)
-    .map(cmd => ({
-      ...cmd,
-      winRate: cmd.games > 0 ? (cmd.wins / cmd.games) * 100 : 0,
-    }));
-};
+// ─── Commander stats ──────────────────────────────────────────────────────────
 
-// Group games by unique game session
-export const getGameSessions = (games) => {
-  const validGames = filterValidGames(games);
-  const sessions = {};
-  
-  validGames.forEach(game => {
-    if (!sessions[game.gameId]) {
-      sessions[game.gameId] = {
-        gameId: game.gameId,
-        date: game.date,
-        dateString: game.dateString,
-        players: [],
-      };
-    }
-    
-    sessions[game.gameId].players.push({
-      player: game.player,
-      commander: game.commander,
-      colorId: game.colorId,
-      turnOrder: game.turnOrder,
-      result: game.result,
-      isWin: game.isWin,
-      bracket: game.bracket,
+/**
+ * Get most played commanders across a set of games.
+ */
+export const getMostPlayedCommanders = (games, limit = 10) => {
+  const valid = filterValidGames(games);
+  const counts = {};
+
+  valid.forEach(game => {
+    game.players.forEach(p => {
+      if (!p.commander) return;
+      if (!counts[p.commander]) {
+        counts[p.commander] = { name: p.commander, games: 0, wins: 0, colors: p.colorId || [] };
+      }
+      counts[p.commander].games++;
+      if (p.isWin) counts[p.commander].wins++;
     });
   });
-  
-  return Object.values(sessions).sort((a, b) => b.date - a.date);
+
+  return Object.values(counts)
+    .sort((a, b) => b.games - a.games)
+    .slice(0, limit)
+    .map(cmd => ({ ...cmd, winRate: (cmd.wins / cmd.games) * 100 }));
 };
 
-// Calculate average game duration (if Last Turn data exists)
-export const getAverageGameLength = (games) => {
-  const validGames = filterValidGames(games);
-  const gamesWithDuration = validGames.filter(game => game.lastTurn && game.lastTurn > 0);
-  if (gamesWithDuration.length === 0) return null;
-  
-  const total = gamesWithDuration.reduce((sum, game) => sum + parseInt(game.lastTurn), 0);
-  return Math.round(total / gamesWithDuration.length);
-};
+// ─── Game sessions ────────────────────────────────────────────────────────────
 
-// Get win rate by turn order position
-export const getWinRateByPosition = (games) => {
-  const validGames = filterValidGames(games);
-  const positions = {};
-  
-  validGames.forEach(game => {
-    const pos = game.turnOrder;
-    if (!pos) return;
-    
-    if (!positions[pos]) {
-      positions[pos] = { position: pos, games: 0, wins: 0 };
-    }
-    
-    positions[pos].games++;
-    if (game.isWin) positions[pos].wins++;
+/**
+ * Return game documents sorted newest first.
+ * Players array is already present on each doc — no reconstruction needed.
+ */
+export const getGameSessions = (games) =>
+  filterValidGames(games).sort((a, b) => {
+    const dA = parseGameDate(a);
+    const dB = parseGameDate(b);
+    if (dA && dB) return dB - dA;
+    return b.gameId.localeCompare(a.gameId);
   });
-  
+
+// ─── Advanced stats helpers ───────────────────────────────────────────────────
+
+/** Average game length in turns (requires lastTurn on winning player). */
+export const getAverageGameLength = (games) => {
+  const valid = filterValidGames(games);
+  const withTurns = valid.filter(g => g.lastTurn && g.lastTurn > 0);
+  if (withTurns.length === 0) return null;
+  const total = withTurns.reduce((sum, g) => sum + g.lastTurn, 0);
+  return Math.round(total / withTurns.length);
+};
+
+/** Win rate by turn order position across all games. */
+export const getWinRateByPosition = (games) => {
+  const valid = filterValidGames(games);
+  const positions = {};
+
+  valid.forEach(game => {
+    game.players.forEach(p => {
+      const pos = p.turnOrder;
+      if (!pos) return;
+      if (!positions[pos]) positions[pos] = { position: pos, games: 0, wins: 0 };
+      positions[pos].games++;
+      if (p.isWin) positions[pos].wins++;
+    });
+  });
+
   return Object.values(positions)
-    .map(p => ({
-      ...p,
-      winRate: p.games > 0 ? (p.wins / p.games) * 100 : 0,
-    }))
+    .map(p => ({ ...p, winRate: (p.wins / p.games) * 100 }))
     .sort((a, b) => a.position - b.position);
 };
 
-// Get win rate by color identity
+/** Win rate by color identity across all games. */
 export const getWinRateByColors = (games) => {
-  const validGames = filterValidGames(games);
-  const colorGroups = {};
-  
-  validGames.forEach(game => {
-    const colorKey = game.colorId.sort().join(',');
-    
-    if (!colorGroups[colorKey]) {
-      colorGroups[colorKey] = {
-        colors: game.colorId,
-        colorKey,
-        games: 0,
-        wins: 0,
-      };
-    }
-    
-    colorGroups[colorKey].games++;
-    if (game.isWin) colorGroups[colorKey].wins++;
+  const valid = filterValidGames(games);
+  const groups = {};
+
+  valid.forEach(game => {
+    game.players.forEach(p => {
+      const colors = Array.isArray(p.colorId) ? p.colorId : [];
+      const key = [...colors].sort().join(',');
+      if (!groups[key]) groups[key] = { colors, colorKey: key, games: 0, wins: 0 };
+      groups[key].games++;
+      if (p.isWin) groups[key].wins++;
+    });
   });
-  
-  return Object.values(colorGroups)
-    .map(g => ({
-      ...g,
-      winRate: g.games > 0 ? (g.wins / g.games) * 100 : 0,
-    }))
+
+  return Object.values(groups)
+    .map(g => ({ ...g, winRate: (g.wins / g.games) * 100 }))
     .sort((a, b) => b.games - a.games);
 };
 
-// Get weekly stats (games per day of week)
+/** Games per day of week. */
 export const getWeeklyStats = (games) => {
-  const validGames = filterValidGames(games);
+  const valid = filterValidGames(games);
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const weekData = days.map(day => ({ day, games: 0 }));
-  
-  validGames.forEach(game => {
-    if (game.date) {
-      const dayIndex = game.date.getDay();
-      weekData[dayIndex].games++;
-    }
+
+  valid.forEach(game => {
+    const d = parseGameDate(game);
+    if (d) weekData[d.getDay()].games++;
   });
-  
+
   return weekData;
 };
 
-// Get color identity as a string key for comparison
+// ─── Featured decks ───────────────────────────────────────────────────────────
+
 const getColorKey = (colors) => {
   if (!colors || colors.length === 0) return 'colorless';
   return [...colors].sort().join('');
 };
 
-// Get previous session game IDs for breakout deck detection
-const getPreviousSessionIds = (games, currentSessionGames) => {
+/**
+ * Get games from the previous 3 session letters for breakout deck detection.
+ * Works on game documents using gameId prefix.
+ */
+const getPreviousSessionGames = (allGames, currentSessionGames) => {
   if (currentSessionGames.length === 0) return [];
-  
-  // Get the session identifier (e.g., "001-J" from "001-J01")
-  const sampleGameId = currentSessionGames[0].gameId;
-  if (!sampleGameId) return [];
-  
-  // Extract session prefix (e.g., "001-J")
-  const match = sampleGameId.match(/^(\d+)-([A-Z])/);
+
+  const sampleId = currentSessionGames[0].gameId;
+  const match = sampleId?.match(/^(\d+)-([A-Z])/);
   if (!match) return [];
-  
+
   const [, sessionNum, currentLetter] = match;
-  
-  // Get previous 3 letters
-  const currentCharCode = currentLetter.charCodeAt(0);
-  const previousLetters = [];
+  const currentCode = currentLetter.charCodeAt(0);
+  const previousLetters = new Set();
+
   for (let i = 1; i <= 3; i++) {
-    const prevCharCode = currentCharCode - i;
-    if (prevCharCode >= 65) { // 'A' is 65
-      previousLetters.push(String.fromCharCode(prevCharCode));
-    }
+    const code = currentCode - i;
+    if (code >= 65) previousLetters.add(String.fromCharCode(code));
   }
-  
-  // Get games from previous sessions
-  return games.filter(g => {
-    const gMatch = g.gameId?.match(/^(\d+)-([A-Z])/);
-    if (!gMatch) return false;
-    const [, gNum, gLetter] = gMatch;
-    return gNum === sessionNum && previousLetters.includes(gLetter);
+
+  return filterValidGames(allGames).filter(g => {
+    const m = g.gameId?.match(/^(\d+)-([A-Z])/);
+    return m && m[1] === sessionNum && previousLetters.has(m[2]);
   });
 };
 
-// Get Featured Deck of the Week (3 boxes calculated in specific order)
+/**
+ * Get Featured Decks of the Week (3 boxes).
+ * Now operates on game documents — no flat-row reconstruction needed.
+ */
 export const getFeaturedDecks = (allGames, sessionGames) => {
-  const validAllGames = filterValidGames(allGames);
-  const validSessionGames = filterValidGames(sessionGames);
-  
-  if (validSessionGames.length === 0) {
-    return [
-      { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'MOST PLAYED' },
-      { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'BEST PERFORMER' },
-      { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'SPECIAL' }
-    ];
-  }
-  
-  // Build commander stats from session
+  const validAll = filterValidGames(allGames);
+  const validSession = filterValidGames(sessionGames);
+
+  const empty = [
+    { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'MOST PLAYED' },
+    { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'BEST PERFORMER' },
+    { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'SPECIAL' },
+  ];
+
+  if (validSession.length === 0) return empty;
+
+  // Build commander stats from session game documents
   const sessionCommanders = {};
-  validSessionGames.forEach(game => {
-    const cmd = game.commander;
-    if (!cmd) return;
-    
-    if (!sessionCommanders[cmd]) {
-      sessionCommanders[cmd] = {
-        name: cmd,
-        colors: game.colorId || [],
-        games: 0,
-        wins: 0,
-        pilots: new Set(),
-        appearances: []
-      };
-    }
-    
-    sessionCommanders[cmd].games++;
-    if (game.isWin) sessionCommanders[cmd].wins++;
-    sessionCommanders[cmd].pilots.add(game.player);
-    sessionCommanders[cmd].appearances.push(game);
+
+  validSession.forEach(game => {
+    game.players.forEach(p => {
+      if (!p.commander) return;
+      if (!sessionCommanders[p.commander]) {
+        sessionCommanders[p.commander] = {
+          name: p.commander,
+          colors: p.colorId || [],
+          games: 0,
+          wins: 0,
+          pilots: new Set(),
+          // store player name per win for "squeaked" detection
+          winningPlayers: [],
+        };
+      }
+      const entry = sessionCommanders[p.commander];
+      entry.games++;
+      if (p.isWin) {
+        entry.wins++;
+        entry.winningPlayers.push(p.player);
+      }
+      entry.pilots.add(p.player);
+    });
   });
-  
-  // Calculate win rates
+
   Object.values(sessionCommanders).forEach(cmd => {
     cmd.winRate = cmd.games > 0 ? (cmd.wins / cmd.games) * 100 : 0;
     cmd.pilotCount = cmd.pilots.size;
   });
-  
-  const excludedDecks = new Set();
-  
-  // ==================== BOX 2: BEST PERFORMER ====================
-  // Weighted to prefer multiple wins over 100% with 1 win
-  let bestPerformer = null;
+
+  const excluded = new Set();
+
+  // ── BOX 2: BEST PERFORMER ──
   const performers = Object.values(sessionCommanders)
     .filter(cmd => cmd.wins > 0)
     .sort((a, b) => {
-      // Prefer commanders with multiple wins
       if (a.wins >= 2 && b.wins < 2) return -1;
       if (b.wins >= 2 && a.wins < 2) return 1;
-      
-      // Then by win rate
       if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-      
-      // Then by total wins
       return b.wins - a.wins;
     });
-  
-  if (performers.length > 0) {
-    bestPerformer = { ...performers[0], category: 'BEST PERFORMER' };
-    excludedDecks.add(performers[0].name);
-  } else {
-    bestPerformer = { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'BEST PERFORMER' };
-  }
-  
-  // ==================== BOX 3: SPECIAL FEATURES ====================
-  let specialFeature = null;
+
+  const bestPerformer = performers.length > 0
+    ? (excluded.add(performers[0].name), { ...performers[0], category: 'BEST PERFORMER' })
+    : { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'BEST PERFORMER' };
+
+  // ── BOX 3: SPECIAL ──
   const specialOptions = [];
-  
-  // Option A: Breakout Deck
-  const previousSessionGames = getPreviousSessionIds(validAllGames, validSessionGames);
-  const previousWinningColors = new Set(
-    previousSessionGames
-      .filter(g => g.isWin)
-      .map(g => getColorKey(g.colorId))
+
+  // Option A: Breakout Deck — won this session, color identity didn't win last 3 sessions
+  const prevGames = getPreviousSessionGames(validAll, validSession);
+  const prevWinningColors = new Set(
+    prevGames
+      .flatMap(g => g.players.filter(p => p.isWin).map(p => getColorKey(p.colorId)))
   );
-  
-  const breakoutDecks = Object.values(sessionCommanders)
-    .filter(cmd => {
-      if (cmd.wins === 0) return false;
-      if (excludedDecks.has(cmd.name)) return false;
-      const colorKey = getColorKey(cmd.colors);
-      return !previousWinningColors.has(colorKey);
-    });
-  
+
+  const breakoutDecks = Object.values(sessionCommanders).filter(cmd =>
+    cmd.wins > 0 && !excluded.has(cmd.name) && !prevWinningColors.has(getColorKey(cmd.colors))
+  );
   if (breakoutDecks.length > 0) {
-    specialOptions.push({
-      type: 'breakout',
-      deck: { ...breakoutDecks[0], category: 'BREAKOUT DECK' }
-    });
+    specialOptions.push({ type: 'breakout', deck: { ...breakoutDecks[0], category: 'BREAKOUT DECK' } });
   }
-  
-  // Option B: Underdog Win
-  // Calculate all-time win rates for all commanders
-  const allTimeCommanders = {};
-  validAllGames.forEach(game => {
-    const cmd = game.commander;
-    if (!cmd) return;
-    
-    if (!allTimeCommanders[cmd]) {
-      allTimeCommanders[cmd] = { games: 0, wins: 0 };
-    }
-    allTimeCommanders[cmd].games++;
-    if (game.isWin) allTimeCommanders[cmd].wins++;
-  });
-  
-  const underdogDecks = Object.values(sessionCommanders)
-    .filter(cmd => {
-      if (cmd.wins === 0) return false;
-      if (excludedDecks.has(cmd.name)) return false;
-      
-      const allTimeStats = allTimeCommanders[cmd.name];
-      if (!allTimeStats || allTimeStats.games === 0) return false;
-      
-      const allTimeWinRate = (allTimeStats.wins / allTimeStats.games) * 100;
-      return allTimeWinRate < 20;
+
+  // Option B: Underdog Win — all-time win rate < 20%
+  const allTimeStats = {};
+  validAll.forEach(game => {
+    game.players.forEach(p => {
+      if (!p.commander) return;
+      if (!allTimeStats[p.commander]) allTimeStats[p.commander] = { games: 0, wins: 0 };
+      allTimeStats[p.commander].games++;
+      if (p.isWin) allTimeStats[p.commander].wins++;
     });
-  
+  });
+
+  const underdogDecks = Object.values(sessionCommanders).filter(cmd => {
+    if (cmd.wins === 0 || excluded.has(cmd.name)) return false;
+    const at = allTimeStats[cmd.name];
+    return at && at.games > 0 && (at.wins / at.games) * 100 < 20;
+  });
   if (underdogDecks.length > 0) {
-    specialOptions.push({
-      type: 'underdog',
-      deck: { ...underdogDecks[0], category: 'UNDERDOG WIN' }
-    });
+    specialOptions.push({ type: 'underdog', deck: { ...underdogDecks[0], category: 'UNDERDOG WIN' } });
   }
-  
-  // Option C: Beginner's Luck
-  const allTimeCommanderNames = new Set(Object.keys(allTimeCommanders));
-  const beginnerDecks = Object.values(sessionCommanders)
-    .filter(cmd => {
-      if (cmd.wins === 0) return false;
-      if (excludedDecks.has(cmd.name)) return false;
-      
-      // Check if this commander appeared before this session
-      const priorGames = validAllGames.filter(g => 
-        g.commander === cmd.name && 
-        !validSessionGames.some(sg => sg.gameId === g.gameId)
-      );
-      
-      return priorGames.length === 0;
-    });
-  
-  if (beginnerDecks.length > 0) {
-    specialOptions.push({
-      type: 'beginner',
-      deck: { ...beginnerDecks[0], category: "BEGINNER'S LUCK" }
-    });
-  }
-  
-  // Fallback: "Squeaked One Out!"
-  // Find player(s) with fewest wins in session
-  const playerWins = {};
-  validSessionGames.forEach(game => {
-    if (!playerWins[game.player]) {
-      playerWins[game.player] = 0;
-    }
-    if (game.isWin) playerWins[game.player]++;
+
+  // Option C: Beginner's Luck — never appeared before this session
+  const sessionGameIds = new Set(validSession.map(g => g.gameId));
+  const beginnerDecks = Object.values(sessionCommanders).filter(cmd => {
+    if (cmd.wins === 0 || excluded.has(cmd.name)) return false;
+    return !validAll.some(g => !sessionGameIds.has(g.gameId) &&
+      g.players.some(p => p.commander === cmd.name));
   });
-  
-  const minWins = Math.min(...Object.values(playerWins).filter(w => w > 0));
-  const playersWithMinWins = Object.entries(playerWins)
-    .filter(([_, wins]) => wins === minWins)
-    .map(([player, _]) => player);
-  
-  if (playersWithMinWins.length > 0) {
-    // Get decks played by these players
+  if (beginnerDecks.length > 0) {
+    specialOptions.push({ type: 'beginner', deck: { ...beginnerDecks[0], category: "BEGINNER'S LUCK" } });
+  }
+
+  // Fallback: Squeaked One Out — player with fewest session wins
+  const playerWins = {};
+  validSession.forEach(game => {
+    game.players.forEach(p => {
+      if (!playerWins[p.player]) playerWins[p.player] = 0;
+      if (p.isWin) playerWins[p.player]++;
+    });
+  });
+  const winCounts = Object.values(playerWins).filter(w => w > 0);
+  if (winCounts.length > 0) {
+    const minWins = Math.min(...winCounts);
+    const minWinPlayers = new Set(
+      Object.entries(playerWins).filter(([, w]) => w === minWins).map(([p]) => p)
+    );
     const squeakedDecks = Object.values(sessionCommanders)
-      .filter(cmd => {
-        if (excludedDecks.has(cmd.name)) return false;
-        // Check if any pilot of this deck is in the min-wins players
-        return cmd.appearances.some(game => 
-          game.isWin && playersWithMinWins.includes(game.player)
-        );
-      })
-      .sort((a, b) => {
-        // Prefer deck with fewer total appearances
-        if (a.games !== b.games) return a.games - b.games;
-        // Random if still tied
-        return Math.random() - 0.5;
-      });
-    
+      .filter(cmd => !excluded.has(cmd.name) &&
+        cmd.winningPlayers.some(p => minWinPlayers.has(p)))
+      .sort((a, b) => a.games !== b.games ? a.games - b.games : Math.random() - 0.5);
     if (squeakedDecks.length > 0) {
-      specialOptions.push({
-        type: 'squeaked',
-        deck: { ...squeakedDecks[0], category: 'SQUEAKED ONE OUT!' }
-      });
+      specialOptions.push({ type: 'squeaked', deck: { ...squeakedDecks[0], category: 'SQUEAKED ONE OUT!' } });
     }
   }
-  
-  // Select random special option
+
+  let specialFeature;
   if (specialOptions.length > 0) {
     const selected = specialOptions[Math.floor(Math.random() * specialOptions.length)];
     specialFeature = selected.deck;
-    excludedDecks.add(selected.deck.name);
+    excluded.add(selected.deck.name);
   } else {
     specialFeature = { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'SPECIAL' };
   }
-  
-  // ==================== BOX 1: MOST PLAYED ====================
-  let mostPlayed = null;
+
+  // ── BOX 1: MOST PLAYED ──
   const mostPlayedCandidates = Object.values(sessionCommanders)
-    .filter(cmd => !excludedDecks.has(cmd.name))
+    .filter(cmd => !excluded.has(cmd.name))
     .sort((a, b) => {
-      // Sort by games played
       if (b.games !== a.games) return b.games - a.games;
-      
-      // Tiebreaker: multiple pilots
       if (b.pilotCount !== a.pilotCount) return b.pilotCount - a.pilotCount;
-      
-      // Random if still tied
       return Math.random() - 0.5;
     });
-  
-  if (mostPlayedCandidates.length > 0) {
-    mostPlayed = { ...mostPlayedCandidates[0], category: 'MOST PLAYED' };
-  } else {
-    mostPlayed = { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'MOST PLAYED' };
-  }
-  
+
+  const mostPlayed = mostPlayedCandidates.length > 0
+    ? { ...mostPlayedCandidates[0], category: 'MOST PLAYED' }
+    : { name: 'No Games Played', colors: [], games: 0, wins: 0, winRate: 0, category: 'MOST PLAYED' };
+
   return [mostPlayed, bestPerformer, specialFeature];
+};
+
+// ─── Player games helper ──────────────────────────────────────────────────────
+
+/**
+ * Get all player-entries for a specific player name across a set of games.
+ * Returns an array of { game, playerEntry } pairs for pages that need
+ * both the game context and the player's individual data.
+ */
+export const getPlayerEntries = (games, playerName) => {
+  const valid = filterValidGames(games);
+  const entries = [];
+  valid.forEach(game => {
+    const p = game.players.find(p => p.player === playerName);
+    if (p) entries.push({ game, player: p });
+  });
+  return entries;
 };

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
-import firebaseAuthService from '../services/firebaseAuth';
 import { 
   saveUserProfile, 
   loadUserProfile,
@@ -13,6 +12,7 @@ import {
   initializePlaygroup,
   regenerateJoinCode
 } from '../utils/firestoreHelpers';
+import { getAllGames, deleteGame } from '../services/gameService';
 import './BlankPage.css';
 
 function AdministratorPage({ currentPlaygroup }) {
@@ -147,21 +147,13 @@ function AdministratorPage({ currentPlaygroup }) {
             }
             setMemberProfiles(profiles);
 
-            // Load player names from sheet
+            // Load player names from Firestore game documents
             try {
-              const sheetData = await firebaseAuthService.getSheetData(
-                currentPlaygroup.spreadsheetId,
-                'Games!C:C'
-              );
-              
-              // Get unique player names (skip header row)
+              const gameDocs = await getAllGames(currentPlaygroup.spreadsheetId);
               const names = [...new Set(
-                sheetData
-                  .slice(1)
-                  .map(row => row[0])
+                gameDocs.flatMap(g => (g.players || []).map(p => p.player))
                   .filter(name => name && name.trim())
               )].sort();
-              
               setPlayerNames(names);
             } catch (err) {
               console.error('Error loading player names:', err);
@@ -365,161 +357,100 @@ function AdministratorPage({ currentPlaygroup }) {
 
   const handleCleanupConfirm = async () => {
     if (!currentPlaygroup?.spreadsheetId) return;
-    
+
     setShowCleanupModal(false);
-    
+    setSaveMessage('Processing cleanup...');
+    setIsSaving(true);
+
     try {
-      // Show processing message
-      setSaveMessage('Processing cleanup...');
-      setIsSaving(true);
-      
       const spreadsheetId = currentPlaygroup.spreadsheetId;
-      
-      // Step 1: Fetch all sheet data (columns A-J)
-      const allRows = await firebaseAuthService.getSheetData(spreadsheetId, 'Games!A:J');
-      
-      if (!allRows || allRows.length <= 1) {
+
+      // Step 1: Fetch all game documents from Firestore
+      const allGames = await getAllGames(spreadsheetId);
+
+      if (allGames.length === 0) {
         setSaveMessage('No data found to clean');
         setIsSaving(false);
         return;
       }
-      
-      // Skip header row (index 0)
-      const dataRows = allRows.slice(1);
-      
-      // Step 2: Group rows by gameId (column B, index 1)
-      const gameGroups = {};
-      dataRows.forEach((row, index) => {
-        const gameId = row[1]; // Column B
-        if (!gameId) return; // Skip rows without gameId
-        
-        if (!gameGroups[gameId]) {
-          gameGroups[gameId] = [];
-        }
-        gameGroups[gameId].push({
-          rowNumber: index + 2, // +2 (header is row 1, data starts at row 2)
-          data: row
-        });
-      });
-      
-      // Step 3: Identify complete games vs stubs
-      const completeGames = [];
-      const stubGameIds = [];
-      
-      Object.entries(gameGroups).forEach(([gameId, rows]) => {
-        // Check if any row has "Win" in column G (index 6)
-        const hasWinner = rows.some(r => r.data[6] === 'Win');
-        
-        if (hasWinner) {
-          completeGames.push({ gameId, rows });
-        } else {
-          stubGameIds.push(gameId);
-        }
-      });
-      
-      console.log(`Found ${stubGameIds.length} stub games and ${completeGames.length} complete games`);
-      
-      if (stubGameIds.length === 0) {
+
+      // Step 2: Identify incomplete games (no winner)
+      const stubGames = allGames.filter(g => !g.winner);
+      const completeGames = allGames.filter(g => g.winner);
+
+      console.log(`Found ${stubGames.length} incomplete games and ${completeGames.length} complete games`);
+
+      if (stubGames.length === 0) {
         setSaveMessage('No incomplete games found to clean up');
         setIsSaving(false);
         return;
       }
-      
-      // Step 4: Delete stub games (using existing deleteGameRows method)
-      let totalDeleted = 0;
-      for (const stubId of stubGameIds) {
-        const result = await firebaseAuthService.deleteGameRows(spreadsheetId, stubId);
-        totalDeleted += result.deletedCount || 0;
-        console.log(`Deleted stub game ${stubId}: ${result.deletedCount} rows`);
+
+      // Step 3: Delete incomplete game documents
+      for (const game of stubGames) {
+        await deleteGame(spreadsheetId, game.gameId);
+        console.log(`Deleted incomplete game ${game.gameId}`);
       }
-      
-      // Step 5: Re-fetch data after deletions
-      const updatedRows = await firebaseAuthService.getSheetData(spreadsheetId, 'Games!A:J');
-      const updatedDataRows = updatedRows.slice(1);
-      
-      // Re-group by gameId
-      const updatedGameGroups = {};
-      updatedDataRows.forEach((row, index) => {
-        const gameId = row[1];
-        if (!gameId) return;
-        
-        if (!updatedGameGroups[gameId]) {
-          updatedGameGroups[gameId] = [];
-        }
-        updatedGameGroups[gameId].push({
-          rowNumber: index + 2,
-          gameId: gameId
-        });
-      });
-      
-      // Step 6: Group by date prefix and renumber
-      const byDatePrefix = {};
-      Object.entries(updatedGameGroups).forEach(([gameId, rows]) => {
-        const parts = gameId.split('-'); // e.g., "001-A03" -> ["001", "A03"]
+
+      // Step 4: Renumber remaining games by session prefix
+      // Group complete games by session prefix (e.g. "001-A")
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+
+      const byPrefix = {};
+      completeGames.forEach(game => {
+        const parts = game.gameId.split('-');
         if (parts.length !== 2) return;
-        
-        const datePrefix = `${parts[0]}-${parts[1].charAt(0)}`; // e.g., "001-A"
-        
-        if (!byDatePrefix[datePrefix]) {
-          byDatePrefix[datePrefix] = [];
-        }
-        byDatePrefix[datePrefix].push({ gameId, rows });
+        const prefix = `${parts[0]}-${parts[1].charAt(0)}`; // "001-A"
+        if (!byPrefix[prefix]) byPrefix[prefix] = [];
+        byPrefix[prefix].push(game);
       });
-      
-      // Step 7: Build batch updates for renumbering
-      const batchUpdates = [];
-      
-      Object.entries(byDatePrefix).forEach(([datePrefix, games]) => {
+
+      let renumberedCount = 0;
+
+      for (const [prefix, games] of Object.entries(byPrefix)) {
         // Sort by current game number
         games.sort((a, b) => {
-          const numA = parseInt(a.gameId.split('-')[1].slice(1)); // "A03" -> 3
+          const numA = parseInt(a.gameId.split('-')[1].slice(1));
           const numB = parseInt(b.gameId.split('-')[1].slice(1));
           return numA - numB;
         });
-        
-        // Assign new sequential numbers
-        games.forEach((game, index) => {
-          const newGameNumber = String(index + 1).padStart(2, '0');
-          const newGameId = `${datePrefix}${newGameNumber}`;
-          
-          // Only update if gameId changed
-          if (game.gameId !== newGameId) {
-            // Add all rows for this game to batch update
-            game.rows.forEach(row => {
-              batchUpdates.push({
-                rowNumber: row.rowNumber,
-                newGameId: newGameId
-              });
-            });
+
+        for (let i = 0; i < games.length; i++) {
+          const newGameId = `${prefix}${String(i + 1).padStart(2, '0')}`;
+          if (games[i].gameId !== newGameId) {
+            // Write a new doc with the correct ID, delete the old one
+            const { setDoc } = await import('firebase/firestore');
+            await setDoc(
+              doc(db, 'playgroups', spreadsheetId, 'games', newGameId),
+              { ...games[i], gameId: newGameId }
+            );
+            await deleteGame(spreadsheetId, games[i].gameId);
+            renumberedCount++;
+            console.log(`Renumbered ${games[i].gameId} → ${newGameId}`);
           }
-        });
-      });
-      
-      // Step 8: Apply batch updates
-      if (batchUpdates.length > 0) {
-        console.log(`Applying ${batchUpdates.length} game ID updates`);
-        await firebaseAuthService.batchUpdateGameIds(spreadsheetId, batchUpdates);
+        }
       }
-      
-      const renumberedGames = new Set(batchUpdates.map(u => u.newGameId)).size;
-      setSaveMessage(`Cleanup complete! Deleted ${totalDeleted} rows from ${stubGameIds.length} incomplete games. Renumbered ${renumberedGames} games.`);
+
+      setSaveMessage(
+        `Cleanup complete! Deleted ${stubGames.length} incomplete games.` +
+        (renumberedCount > 0 ? ` Renumbered ${renumberedCount} games.` : '')
+      );
       setTimeout(() => setSaveMessage(''), 8000);
-      setIsSaving(false);
-      
+
     } catch (error) {
       console.error('Error during cleanup:', error);
       setSaveMessage('Failed to cleanup: ' + error.message);
       setTimeout(() => setSaveMessage(''), 8000);
-      setIsSaving(false);
     }
+
+    setIsSaving(false);
   };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
-      // Sign out from Firebase (clears IndexedDB and Google Sheets tokens)
-      await firebaseAuthService.signOut();
-      // Navigate to login (don't clear ALL localStorage - keeps Google OAuth consent)
+      await auth.signOut();
       navigate('/login');
     } catch (error) {
       console.error('Sign out error:', error);
@@ -1000,6 +931,54 @@ function AdministratorPage({ currentPlaygroup }) {
                   Delete Game Fragments
                 </button>
               </div>
+
+              {/* Import Data Section */}
+              <div style={{ marginTop: '24px' }}>
+                <h4 className="subsection-title">Import Game Data</h4>
+                <p className="section-description">
+                  Import game history from a Google Sheets CSV export into Firestore
+                </p>
+                <button
+                  onClick={() => navigate('/import-data')}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#3b82f6',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    marginTop: '12px'
+                  }}
+                >
+                  Import from CSV →
+                </button>
+              </div>
+
+              {/* Game Editor Section */}
+              <div style={{ marginTop: '24px' }}>
+                <h4 className="subsection-title">Edit Game Records</h4>
+                <p className="section-description">
+                  View and correct game data — fix wrong results, commanders, or win conditions
+                </p>
+                <button
+                  onClick={() => navigate('/game-editor')}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#7c3aed',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    marginTop: '12px'
+                  }}
+                >
+                  Open Game Editor →
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -1149,7 +1128,7 @@ function AdministratorPage({ currentPlaygroup }) {
               Remove {memberProfiles[kickingUser]?.name || 'this member'} from the playgroup?
             </p>
             <p className="kick-modal-note">
-              This will not affect their game stats in the spreadsheet.
+              This will not affect their game stats in the database.
             </p>
             <div className="kick-modal-actions">
               <button
