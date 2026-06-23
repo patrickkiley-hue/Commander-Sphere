@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAllGames, updateGame, deleteGame } from '../services/gameService';
 import { getDisplayName } from '../utils/deckNameUtils';
+import scryfallService from '../services/scryfallService';
 import ColorMana from '../components/ColorMana';
 
 const WIN_CONDITIONS = ['', 'Combo', 'Commander Damage', 'Mill', 'Poison', 'Alternate Win-Con'];
@@ -185,6 +186,39 @@ const s = {
     gap: 12,
     marginTop: 16,
   },
+  searchWrap: { position: 'relative', flex: 1 },
+  suggestionList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    background: '#1e293b',
+    border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: 6,
+    zIndex: 50,
+    maxHeight: 200,
+    overflowY: 'auto',
+    marginTop: 2,
+  },
+  suggestionItem: (active) => ({
+    padding: '8px 12px',
+    fontSize: 13,
+    cursor: 'pointer',
+    background: active ? 'rgba(59,130,246,0.2)' : 'transparent',
+    color: active ? '#60a5fa' : '#e2e8f0',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
+  }),
+  partnerBtn: (active) => ({
+    padding: '4px 10px',
+    borderRadius: 6,
+    border: `1px solid ${active ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.1)'}`,
+    background: active ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.04)',
+    color: active ? '#c084fc' : '#64748b',
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: 'pointer',
+    marginTop: 6,
+  }),
   saveBtn: (saving) => ({
     padding: '9px 22px',
     background: saving ? 'rgba(59,130,246,0.4)' : '#3b82f6',
@@ -303,7 +337,19 @@ export default function GameEditorPage({ currentPlaygroup }) {
       [game.gameId]: {
         dateString: game.dateString || '',
         bracket: game.bracket ?? '',
-        players: (game.players || []).map(p => ({ ...p })),
+        players: (game.players || []).map(p => {
+          // Split partner commanders stored as "Card1 // Card2"
+          const hasPartner = p.commander?.includes(' // ');
+          const [mainCmd, partnerCmd] = hasPartner
+            ? p.commander.split(' // ').map(s => s.trim())
+            : [p.commander || '', ''];
+          return {
+            ...p,
+            commander: mainCmd,
+            partnerCommander: partnerCmd,
+            showPartner: hasPartner,
+          };
+        }),
       }
     }));
   };
@@ -347,6 +393,69 @@ export default function GameEditorPage({ currentPlaygroup }) {
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
+  // ── Commander search ───────────────────────────────────────────────────────
+
+  const handleCmdSearch = async (gameId, pi, field, value) => {
+    // Update the edit state immediately
+    updatePlayer(gameId, pi, field, value);
+    const key = `${gameId}-${pi}-${field}`;
+    if (value.length < 3) { setCmdSearch(prev => ({ ...prev, [key]: [] })); return; }
+    setCmdSearching(key);
+    setCmdLoading(prev => ({ ...prev, [key]: true }));
+    try {
+      const suggestions = await scryfallService.getCommanderSuggestions(value);
+      setCmdSearch(prev => ({ ...prev, [key]: suggestions.slice(0, 10) }));
+    } catch (e) {
+      setCmdSearch(prev => ({ ...prev, [key]: [] }));
+    }
+    setCmdLoading(prev => ({ ...prev, [key]: false }));
+  };
+
+  const sortWUBRG = (colors) => {
+    const order = { W: 0, U: 1, B: 2, R: 3, G: 4, C: 5 };
+    return [...colors].sort((a, b) => (order[a] ?? 9) - (order[b] ?? 9));
+  };
+
+  const handleCmdSelect = async (gameId, pi, field, name) => {
+    const key = `${gameId}-${pi}-${field}`;
+    setCmdSearch(prev => ({ ...prev, [key]: [] }));
+    setCmdSearching(null);
+    updatePlayer(gameId, pi, field, name);
+
+    // Fetch color identity and update colorId
+    try {
+      const card = await scryfallService.getCommanderByName(name);
+      const storedName = scryfallService.getCommanderNameForStorage(card);
+      updatePlayer(gameId, pi, field, storedName);
+      const newColors = scryfallService.getColorIdentity(card);
+
+      // Merge with partner/main commander colors if present
+      const currentPlayers = edits[gameId]?.players || [];
+      const p = currentPlayers[pi] || {};
+      const otherField = field === 'commander' ? 'partnerCommander' : 'commander';
+      const otherName = p[otherField];
+
+      let finalColors = newColors;
+      if (otherName) {
+        try {
+          const otherCard = await scryfallService.getCommanderByName(otherName);
+          const otherColors = scryfallService.getColorIdentity(otherCard);
+          finalColors = [...new Set([...newColors, ...otherColors])];
+        } catch (e) {}
+      }
+
+      const sorted = sortWUBRG(finalColors);
+      updatePlayer(gameId, pi, 'colorId', sorted.length > 0 ? sorted : ['C']);
+    } catch (e) {
+      console.error('Error fetching commander:', e);
+    }
+  };
+
+  const dismissSearch = (key) => {
+    setCmdSearch(prev => ({ ...prev, [key]: [] }));
+    setCmdSearching(null);
+  };
+
   const handleSave = async (gameId) => {
     const edit = edits[gameId];
     if (!edit) return;
@@ -357,6 +466,15 @@ export default function GameEditorPage({ currentPlaygroup }) {
     try {
       const winner = edit.players.find(p => p.isWin);
 
+      // Recombine partner commanders before saving
+      const playersToSave = edit.players.map(p => {
+        const commander = p.partnerCommander
+          ? `${p.commander} // ${p.partnerCommander}`
+          : p.commander;
+        const { partnerCommander, showPartner, ...rest } = p;
+        return { ...rest, commander };
+      });
+
       const updates = {
         dateString: edit.dateString,
         bracket: edit.bracket === '' ? null : edit.bracket,
@@ -365,7 +483,7 @@ export default function GameEditorPage({ currentPlaygroup }) {
         winCondition: winner?.winCondition ?? null,
       };
 
-      await updateGame(spreadsheetId, gameId, updates, edit.players);
+      await updateGame(spreadsheetId, gameId, updates, playersToSave);
 
       // Update local allGames state so the list reflects the save immediately
       setAllGames(prev => prev.map(g => {
@@ -390,6 +508,17 @@ export default function GameEditorPage({ currentPlaygroup }) {
   };
 
   const [confirmDelete, setConfirmDelete] = useState(null); // gameId pending delete
+
+  // Commander search state
+  const [cmdSearch, setCmdSearch] = useState({}); // { [gameId-pi-field]: suggestions[] }
+  const [cmdSearching, setCmdSearching] = useState(null); // 'gameId-pi-field'
+  const [cmdLoading, setCmdLoading] = useState({});
+
+  // Player name autocomplete
+  const allPlayerNames = React.useMemo(() => {
+    return [...new Set(allGames.flatMap(g => (g.players || []).map(p => p.player)).filter(Boolean))].sort();
+  }, [allGames]);
+  const [playerSuggest, setPlayerSuggest] = useState(null); // 'gameId-pi'
 
   const handleDeleteGame = async (gameId) => {
     try {
@@ -525,16 +654,100 @@ export default function GameEditorPage({ currentPlaygroup }) {
                               </div>
                             </div>
 
+                            {/* Player name with autocomplete */}
+                            <div style={{ ...s.fieldRow, marginTop: 8 }}>
+                              <div style={{ ...s.fieldGroup, ...s.searchWrap }}>
+                                <label style={s.label}>Player Name</label>
+                                <input
+                                  style={s.input}
+                                  value={p.player || ''}
+                                  onChange={e => {
+                                    updatePlayer(game.gameId, pi, 'player', e.target.value);
+                                    setPlayerSuggest(`${game.gameId}-${pi}`);
+                                  }}
+                                  onBlur={() => setTimeout(() => setPlayerSuggest(null), 150)}
+                                />
+                                {playerSuggest === `${game.gameId}-${pi}` && p.player && (
+                                  <div style={s.suggestionList}>
+                                    {allPlayerNames
+                                      .filter(n => n.toLowerCase().includes(p.player.toLowerCase()) && n !== p.player)
+                                      .slice(0, 8)
+                                      .map((name, i) => (
+                                        <div
+                                          key={i}
+                                          style={s.suggestionItem(false)}
+                                          onMouseDown={() => updatePlayer(game.gameId, pi, 'player', name)}
+                                        >
+                                          {name}
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Commander with Scryfall search */}
                             <div style={s.fieldRow}>
-                              <div style={s.fieldGroup}>
+                              <div style={{ ...s.fieldGroup, ...s.searchWrap }}>
                                 <label style={s.label}>Commander</label>
                                 <input
                                   style={s.input}
                                   value={p.commander || ''}
-                                  onChange={e => updatePlayer(game.gameId, pi, 'commander', e.target.value)}
+                                  placeholder="Search commander..."
+                                  onChange={e => handleCmdSearch(game.gameId, pi, 'commander', e.target.value)}
+                                  onBlur={() => setTimeout(() => dismissSearch(`${game.gameId}-${pi}-commander`), 150)}
                                 />
+                                {(cmdSearch[`${game.gameId}-${pi}-commander`] || []).length > 0 && (
+                                  <div style={s.suggestionList}>
+                                    {cmdSearch[`${game.gameId}-${pi}-commander`].map((name, i) => (
+                                      <div
+                                        key={i}
+                                        style={s.suggestionItem(false)}
+                                        onMouseDown={() => handleCmdSelect(game.gameId, pi, 'commander', name)}
+                                      >
+                                        {name}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </div>
+
+                            {/* Partner toggle + partner field */}
+                            <button
+                              style={s.partnerBtn(p.showPartner)}
+                              onClick={() => updatePlayer(game.gameId, pi, 'showPartner', !p.showPartner)}
+                            >
+                              {p.showPartner ? '− Remove Partner' : '+ Add Partner Commander'}
+                            </button>
+
+                            {p.showPartner && (
+                              <div style={{ ...s.fieldRow, marginTop: 8 }}>
+                                <div style={{ ...s.fieldGroup, ...s.searchWrap }}>
+                                  <label style={s.label}>Partner Commander</label>
+                                  <input
+                                    style={s.input}
+                                    value={p.partnerCommander || ''}
+                                    placeholder="Search partner..."
+                                    onChange={e => handleCmdSearch(game.gameId, pi, 'partnerCommander', e.target.value)}
+                                    onBlur={() => setTimeout(() => dismissSearch(`${game.gameId}-${pi}-partnerCommander`), 150)}
+                                  />
+                                  {(cmdSearch[`${game.gameId}-${pi}-partnerCommander`] || []).length > 0 && (
+                                    <div style={s.suggestionList}>
+                                      {cmdSearch[`${game.gameId}-${pi}-partnerCommander`].map((name, i) => (
+                                        <div
+                                          key={i}
+                                          style={s.suggestionItem(false)}
+                                          onMouseDown={() => handleCmdSelect(game.gameId, pi, 'partnerCommander', name)}
+                                        >
+                                          {name}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
                             {p.isWin && (
                               <div style={s.fieldRow}>

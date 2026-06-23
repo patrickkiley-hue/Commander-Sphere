@@ -63,6 +63,11 @@ function TrackGamePage({ currentPlaygroup }) {
   const [showContinueGamePopup, setShowContinueGamePopup] = useState(false);
   const [existingGameData, setExistingGameData] = useState(null);
 
+  // Rematch state
+  const [lastGame, setLastGame] = useState(null); // loaded from localStorage
+  const [rematchStep, setRematchStep] = useState(null); // null | 'confirm' | 'pickSeat1'
+  const [rematchSeat1, setRematchSeat1] = useState(null); // index in lastGame.players
+
   // Device detection for Live Track
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
@@ -94,20 +99,39 @@ function TrackGamePage({ currentPlaygroup }) {
       
       // Check for existing live game
       const existingGame = localStorage.getItem('liveTrackGame');
+      let shouldShowContinuePopup = false;
       if (existingGame && !hasCheckedExistingGame.current) {
         hasCheckedExistingGame.current = true; // Mark as checked to prevent double-trigger
         try {
           const gameData = JSON.parse(existingGame);
           setExistingGameData(gameData);
           setShowContinueGamePopup(true);
-          // Don't set loading to false yet - wait for user decision
-          return;
+          shouldShowContinuePopup = true;
         } catch (error) {
           console.error('Error parsing existing game data:', error);
           localStorage.removeItem('liveTrackGame');
         }
       }
-      
+
+      // Load rematch data if within 8 hour window
+      try {
+        const stored = localStorage.getItem('lastGame');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const age = Date.now() - (parsed.savedAt || 0);
+          if (age < 8 * 60 * 60 * 1000) {
+            setLastGame(parsed);
+          } else {
+            localStorage.removeItem('lastGame');
+          }
+        }
+      } catch (e) {
+        localStorage.removeItem('lastGame');
+      }
+
+      // Don't set loading to false yet if waiting on continue-game decision
+      if (shouldShowContinuePopup) return;
+
       setIsLoading(false);
     };
 
@@ -436,6 +460,59 @@ function TrackGamePage({ currentPlaygroup }) {
     return `${month}/${day}/${year}`;
   };
 
+  // ── Rematch handler ─────────────────────────────────────────────────────────
+
+  const handleRematchConfirm = () => {
+    setRematchStep('pickSeat1');
+  };
+
+  const handleRematchSeat1Select = (playerIndex) => {
+    setRematchSeat1(playerIndex);
+  };
+
+  const handleRematchApply = () => {
+    if (rematchSeat1 === null || !lastGame) return;
+
+    const prev = lastGame.players;
+    const count = lastGame.playerCount;
+    const n = prev.length;
+
+    // Rotate array so selected player is first
+    const rotated = [];
+    for (let i = 0; i < n; i++) {
+      rotated.push(prev[(rematchSeat1 + i) % n]);
+    }
+
+    // Build new players array preserving all deck data, resetting game result fields
+    const newPlayers = rotated.map(p => ({
+      player: p.player,
+      commander: p.commander,
+      partnerCommander: p.partnerCommander || '',
+      showPartner: p.showPartner || false,
+      colorId: p.colorId || [],
+      bracket: p.bracket || null,
+      isWinner: false,
+      lastTurn: '',
+      winCondition: '',
+    }));
+
+    // Pad to 5 if needed
+    while (newPlayers.length < 5) {
+      newPlayers.push({ player: '', commander: '', partnerCommander: '', showPartner: false, colorId: [], bracket: null, isWinner: false, lastTurn: '', winCondition: '' });
+    }
+
+    // Set playerCount first; defer setting players so the playerCount
+    // useEffect (which slices/pads the players array) runs first and
+    // doesn't overwrite this data with blanks afterward.
+    setPlayerCount(count);
+    setTimeout(() => {
+      setPlayers(newPlayers);
+    }, 0);
+
+    setRematchStep(null);
+    setRematchSeat1(null);
+  };
+
   const handleSubmitGame = async () => {
     const validation = validateForm();
 
@@ -460,6 +537,22 @@ function TrackGamePage({ currentPlaygroup }) {
         players.slice(0, playerCount),
         advancedStatsEnabled
       );
+
+      // Save rematch data to localStorage
+      const rematchData = {
+        savedAt: Date.now(),
+        playerCount,
+        players: players.slice(0, playerCount).map(p => ({
+          player: p.player,
+          commander: p.commander,
+          partnerCommander: p.partnerCommander || '',
+          showPartner: !!p.partnerCommander,
+          colorId: p.colorId,
+          bracket: p.bracket,
+        }))
+      };
+      localStorage.setItem('lastGame', JSON.stringify(rematchData));
+      setLastGame(rematchData);
 
       showAlert('Success', 'Game submitted successfully!');
       setTimeout(() => navigate('/'), 1000);
@@ -513,6 +606,22 @@ function TrackGamePage({ currentPlaygroup }) {
         advancedStatsEnabled
       };
       localStorage.setItem('liveTrackGame', JSON.stringify(gameDataForTracking));
+
+      // Save rematch data to localStorage
+      const rematchData = {
+        savedAt: Date.now(),
+        playerCount,
+        players: players.slice(0, playerCount).map(p => ({
+          player: p.player,
+          commander: p.commander,
+          partnerCommander: p.partnerCommander || '',
+          showPartner: !!p.partnerCommander,
+          colorId: p.colorId,
+          bracket: p.bracket,
+        }))
+      };
+      localStorage.setItem('lastGame', JSON.stringify(rematchData));
+      setLastGame(rematchData);
 
       navigate('/live-track');
     } catch (error) {
@@ -585,6 +694,29 @@ function TrackGamePage({ currentPlaygroup }) {
             </div>
           </div>
         </div>
+
+        {/* Rematch Button */}
+        {lastGame && (
+          <button
+            onClick={() => setRematchStep('confirm')}
+            style={{
+              display: 'block',
+              width: '100%',
+              margin: '12px 0 4px',
+              padding: '10px',
+              background: 'rgba(99,102,241,0.15)',
+              border: '1px solid rgba(99,102,241,0.35)',
+              borderRadius: '10px',
+              color: '#a5b4fc',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              letterSpacing: '0.02em',
+            }}
+          >
+            🔁 Rematch
+          </button>
+        )}
 
         {/* Player Frames */}
         <div className="player-frames">
@@ -861,6 +993,118 @@ function TrackGamePage({ currentPlaygroup }) {
                 {modalConfig.type === 'confirm' ? 'Confirm' : 'OK'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rematch Popup */}
+      {rematchStep && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '20px'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: '16px',
+            padding: '28px 24px',
+            width: '100%',
+            maxWidth: '360px',
+            textAlign: 'center',
+          }}>
+            {rematchStep === 'confirm' ? (
+              <>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>🔁</div>
+                <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+                  Rematch?
+                </h3>
+                <p style={{ color: '#94a3b8', fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>
+                  Create new game with same players and decks?
+                </p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => setRematchStep(null)}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 8,
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#94a3b8', fontSize: 14, fontWeight: 600, cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRematchConfirm}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 8,
+                      background: '#4f46e5', border: 'none',
+                      color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer'
+                    }}
+                  >
+                    Yes
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
+                  Select Player 1
+                </h3>
+                <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 20 }}>
+                  Who goes first this game?
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 24 }}>
+                  {(lastGame?.players || []).map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleRematchSeat1Select(i)}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 20,
+                        border: `1px solid ${rematchSeat1 === i ? 'rgba(74,222,128,0.5)' : 'rgba(255,255,255,0.15)'}`,
+                        background: rematchSeat1 === i ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.05)',
+                        color: rematchSeat1 === i ? '#4ade80' : '#e2e8f0',
+                        fontSize: 14,
+                        fontWeight: rematchSeat1 === i ? 700 : 400,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {p.player}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => { setRematchStep(null); setRematchSeat1(null); }}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 8,
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#94a3b8', fontSize: 14, fontWeight: 600, cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRematchApply}
+                    disabled={rematchSeat1 === null}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 8,
+                      background: rematchSeat1 !== null ? '#4f46e5' : 'rgba(255,255,255,0.06)',
+                      border: rematchSeat1 !== null ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                      color: rematchSeat1 !== null ? '#fff' : '#475569',
+                      fontSize: 14, fontWeight: 600,
+                      cursor: rematchSeat1 !== null ? 'pointer' : 'default',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    OK
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
